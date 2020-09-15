@@ -99,6 +99,22 @@ then
 	wget --no-check-certificate -qO Core_Install.sh 'https://github.com/ylx2016/reinstall/raw/master/Core_Install_2020.sh' && bash Core_Install.sh -dd 'https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/EZyb3S0ntb1Dh26H19LWpNwBpzPjXCC0c95F45qJHUZfpA?download=1'
 fi
 
+if [ $1 = '-CentOS_77' ]
+then
+	echo -e "\033[33m You have chosen to install the latest CentOS_77 \033[0m"
+	echo -e "\n"
+	sleep 5s
+	wget --no-check-certificate -qO Core_Install.sh 'https://github.com/ylx2016/reinstall/raw/master/Core_Install_2020.sh' && bash Core_Install.sh -dd 'https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/ESMB5RkKz71EmGYk5mSzu20ByxWcz4ZEAzae06i_Ay8Lpw?download=1'
+fi
+
+if [ $1 = '-CentOS_76' ]
+then
+	echo -e "\033[33m You have chosen to install the latest CentOS_76 \033[0m"
+	echo -e "\n"
+	sleep 5s
+	wget --no-check-certificate -qO Core_Install.sh 'https://github.com/ylx2016/reinstall/raw/master/Core_Install_2020.sh' && bash Core_Install.sh -dd 'https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/ETvtxiNh0F9MkPcTG2mAb9YBbf1Idna0zeRQ5auLoBuMYw?download=1'
+fi
+
 if [ $1 = '-Debian_10' ]
 then
 	echo -e "\033[33m You have chosen to install the latest Debian_10 \033[0m"

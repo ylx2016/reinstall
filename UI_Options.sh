@@ -24,6 +24,7 @@ echo "=           一键网络重装系统 - 魔改版（图形化安装）     
 echo "=        Network-Reinstall-System-Modify (Graphical Install)   ="
 echo "=                                                              ="
 echo "=                                https://www.cxthhhhh.com      ="
+echo "=                                默认密码    cxthhhhh.com      ="
 echo "=                                                              ="
 echo "================================================================"
 echo "                                                                "
@@ -33,6 +34,8 @@ echo "  0) Latest 【Bare-metal System Deployment Platform】(Recommend)"
 echo "                                                                "
 echo "  1) Latest 【CentOS 8】(Recommend)"
 echo "  2) Latest 【CentOS 7】"
+echo "  11) Latest 【CentOS 7.7 from dansnow】默认密码 Pwd@CentOS"
+echo "  12) Latest 【CentOS 7.6 (ServerSpeeder Avaliable) from dansnow】默认密码 Pwd@CentOS"
 echo "                                                                "
 echo "  3) Latest 【Debian 10】(Recommend)"
 echo "  4) Latest 【Debian 9】"
@@ -75,6 +78,8 @@ case $Num in
   8) bash Network-Reinstall-System-Modify.sh -Windows_Server_2019;;
   9) bash Network-Reinstall-System-Modify.sh -Windows_Server_2016 ;;
   10) bash Network-Reinstall-System-Modify.sh -Windows_Server_2012R2 ;;
+  11) bash Network-Reinstall-System-Modify.sh -CentOS_77 ;;
+  12) bash Network-Reinstall-System-Modify.sh -CentOS_76 ;;
   
   31) bash Network-Reinstall-System-Modify.sh -CentOS_6 ;;
   32) bash Network-Reinstall-System-Modify.sh -Debian_8 ;;
