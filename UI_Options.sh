@@ -12,7 +12,7 @@
 ## WebSite: https://www.cxthhhhh.com
 ## Written By CXT (CXTHHHHH.com)
 
-wget -N --no-check-certificate https://www.cxthhhhh.com/CXT-Library/Network-Reinstall-System-Modify/Network-Reinstall-System-Modify.sh && chmod a+x Network-Reinstall-System-Modify.sh
+wget -N --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/Network-Reinstall-System-Modify.sh && chmod a+x Network-Reinstall-System-Modify.sh
 
 echo -e "\n\n\n"
 clear
