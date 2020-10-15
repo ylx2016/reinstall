@@ -86,7 +86,7 @@ case $Num in
   11) bash Network-Reinstall-System-Modify.sh -CentOS_77 ;;
   12) bash Network-Reinstall-System-Modify.sh -CentOS_76 ;;
   13) wget -N -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh ;;
-  14) wget -N -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_active.sh && bash CentOSReinstall_beta_active.sh ;;
+  14) wget -N -O CentOSReinstall_beta_active.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_active.sh && bash CentOSReinstall_beta_active.sh ;;
   
   31) bash Network-Reinstall-System-Modify.sh -CentOS_6 ;;
   32) bash Network-Reinstall-System-Modify.sh -Debian_8 ;;
