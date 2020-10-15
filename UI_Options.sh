@@ -34,8 +34,13 @@ echo "  0) Latest 【Bare-metal System Deployment Platform】(Recommend)"
 echo "                                                                "
 echo "  1) Latest 【CentOS 8】(Recommend)"
 echo "  2) Latest 【CentOS 7】"
-echo "  11)【CentOS 7.7 from dansnow】默认密码 Pwd@CentOS"
-echo "  12)【CentOS 7.6 (ServerSpeeder Avaliable) from dansnow】默认密码 Pwd@CentOS"
+echo "                                                                "
+echo "  ======下面是ylx增加的DD方案，非cxthhhhh版本      默认密码 Pwd@CentOS"
+echo "  11) CentOS 7.7 By dansnow                        默认密码 Pwd@CentOS"
+echo "  12) CentOS 7.6 (ServerSpeeder 可用) By dansnow   默认密码 Pwd@CentOS"
+echo "  13) CentOS重装方案 By dansnow                    默认密码 Pwd@CentOS"
+echo "  14) CentOS重装方案 By dansnow Active激进系统方案 默认密码 Pwd@CentOS"
+echo "  ======ylx增加的DD方案结束                                     "
 echo "                                                                "
 echo "  3) Latest 【Debian 10】(Recommend)"
 echo "  4) Latest 【Debian 9】"
@@ -80,6 +85,8 @@ case $Num in
   10) bash Network-Reinstall-System-Modify.sh -Windows_Server_2012R2 ;;
   11) bash Network-Reinstall-System-Modify.sh -CentOS_77 ;;
   12) bash Network-Reinstall-System-Modify.sh -CentOS_76 ;;
+  13) wget -N -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh
+  14) wget -N -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_active.sh && bash CentOSReinstall_beta_active.sh
   
   31) bash Network-Reinstall-System-Modify.sh -CentOS_6 ;;
   32) bash Network-Reinstall-System-Modify.sh -Debian_8 ;;
