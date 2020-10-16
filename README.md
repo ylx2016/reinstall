@@ -7,3 +7,5 @@ wget --no-check-certificate -qO ~/Network-Reinstall-System-Modify.sh 'https://gi
 
 CentOS重装脚本
 https://www.hostloc.com/thread-717814-1-1.html
+
+wget -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh
