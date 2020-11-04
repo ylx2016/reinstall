@@ -11,7 +11,7 @@ https://www.hostloc.com/thread-717814-1-1.html
 wget -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh
 
 
-
+DD alpine
 cloudcone
 
     wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/cloudcone2alpine.sh && chmod +x cloudcone2alpine.sh && ./cloudcone2alpine.sh
