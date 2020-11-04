@@ -41,7 +41,7 @@ fi
 SCRIPTPATH="$(realpath "$0")"
 #如果有更新，自行替换新版本文件
 printf "Downloading Alpine" >&2
-if ! wget -q -O /tmp/rootfs.tar.gz http://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz; then
+if ! wget -q -O /tmp/rootfs.tar.gz http://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/alpine-minirootfs-3.12.1-x86_64.tar.gz; then
   echo " Failed!" >&2
   exit 1
 fi
