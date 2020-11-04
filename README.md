@@ -9,3 +9,17 @@ CentOS重装脚本 Pwd@CentOS
 https://www.hostloc.com/thread-717814-1-1.html
 
 wget -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh
+
+
+
+cloudcone
+
+    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/cloudcone2alpine.sh && chmod +x cloudcone2alpine.sh && ./cloudcone2alpine.sh
+
+谷歌云GCP
+
+    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/alpine.sh && chmod +x alpine.sh && sed -i "s|^mask|mask=255.255.255.0\n#mask|" alpine.sh && ./alpine.sh
+
+其他KVM
+
+    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/alpine.sh && chmod +x alpine.sh && ./alpine.sh
