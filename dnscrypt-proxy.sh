@@ -13,7 +13,10 @@ if [[ -n ${myipv6} ]]; then
   fi
 fi
 rm -rf /etc/dnscrypt-proxy/dnscrypt-proxy.toml
-    cat > '/etc/dnscrypt-proxy/dnscrypt-proxy.toml' << EOF
+if [[ ! -d /var/log/dnscrypt-proxy/ ]]; then
+    mkdir /var/log/dnscrypt-proxy/
+fi	
+cat > '/etc/dnscrypt-proxy/dnscrypt-proxy.toml' << EOF
 #!!! Do not change these settings unless you know what you are doing !!!
 listen_addresses = ['127.0.0.1:53','[::1]:53']
 #user_name = 'nobody'
