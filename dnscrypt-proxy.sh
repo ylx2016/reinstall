@@ -165,5 +165,19 @@ echo "nameserver 127.0.0.1" > '/etc/resolv.conf'
 #nameserver 127.0.0.1
 #options edns0 single-request-reopen
 #EOF
-		systemctl start dnscrypt-proxy
+if [[ -s /etc/sysconfig/network-scripts/ifcfg-eth0 ]]; then
+	sed -i '/DNS1/d' /etc/sysconfig/network-scripts/ifcfg-eth0
+	sed -i '/DNS2/d' /etc/sysconfig/network-scripts/ifcfg-eth0
+	echo "DNS1=127.0.0.1" >> '/etc/sysconfig/network-scripts/ifcfg-eth0'
+fi
+if [[ -s /etc/sysconfig/network-scripts/ifcfg-enp3s0 ]]; then
+	sed -i '/DNS1/d' /etc/sysconfig/network-scripts/ifcfg-enp3s0
+	sed -i '/DNS2/d' /etc/sysconfig/network-scripts/ifcfg-enp3s0
+	echo "DNS1=127.0.0.1" >> '/etc/sysconfig/network-scripts/ifcfg-enp3s0'
+fi
+if [[ -s /etc/resolvconf/resolv.conf.d/head ]]; then
+	sed -i '/nameserver/d' /etc/resolvconf/resolv.conf.d/head
+	echo "nameserver 127.0.0.1" >> '/etc/resolvconf/resolv.conf.d/head'
+fi
+systemctl start dnscrypt-proxy
 fi
