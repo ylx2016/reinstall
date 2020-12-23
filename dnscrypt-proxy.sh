@@ -156,11 +156,11 @@ if [[ $dnsmasq_install -eq 1 ]]; then
 			fi
 rm /etc/resolv.conf
 touch /etc/resolv.conf
-#echo "nameserver 127.0.0.1" > '/etc/resolv.conf'
+echo "nameserver 127.0.0.1" > '/etc/resolv.conf'
 #echo "options edns0 single-request-reopen" > '/etc/resolv.conf'
-cat > '/etc/resolv.conf' << EOF
-nameserver 127.0.0.1
-options edns0 single-request-reopen
-EOF
+#cat > '/etc/resolv.conf' << EOF
+#nameserver 127.0.0.1
+#options edns0 single-request-reopen
+#EOF
 		systemctl start dnscrypt-proxy
 fi
