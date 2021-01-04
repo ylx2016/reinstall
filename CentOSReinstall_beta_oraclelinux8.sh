@@ -50,6 +50,7 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
+    systemctl enable network
     echo "Pwd@CentOS" | passwd --stdin root
 
     cd /
