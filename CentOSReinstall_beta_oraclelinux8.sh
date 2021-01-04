@@ -47,7 +47,7 @@ INIT_OS(){
     #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
     #yum install -y grub2  dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
-    yum install -y grub2  dhcp-client openssh-server passwd wget kernel nano NetworkManager
+    yum install -y grub2  dhcp-client openssh-server passwd wget kernel nano network-scripts
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -55,8 +55,8 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    systemctl enable NetworkManager
-    systemctl enable networkmanager
+    #systemctl enable NetworkManager
+    systemctl enable network
     echo "Pwd@CentOS" | passwd --stdin root
 
     cd /
@@ -66,26 +66,8 @@ INIT_OS(){
     grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
-    mkdir /etc/sysconfig/network-scripts
-    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
+   # mkdir /etc/sysconfig/network-scripts
    
-TYPE="Ethernet"
-PROXY_METHOD="none"
-BROWSER_ONLY="no"
-BOOTPROTO="dhcp"
-DEFROUTE="yes"
-IPV4_FAILURE_FATAL="no"
-NAME="eth0"
-IPV6INIT="yes"
-IPV6_AUTOCONF="yes"
-IPV6_DEFROUTE="yes"
-IPV6_FAILURE_FATAL="no"
-IPV6_ADDR_GEN_MODE="stable-privacy"
-DEVICE="eth0"
-ONBOOT="yes"
-EOFILE
-
-
     cat >>/etc/security/limits.conf<<EOFILE
 
     * soft nofile 65535
