@@ -37,6 +37,7 @@ EXTRACT_IMG(){
 
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
