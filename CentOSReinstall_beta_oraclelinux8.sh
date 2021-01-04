@@ -39,18 +39,20 @@ INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
-    dnf makecache timer
+    yum makecache timer
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
-
+    #yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
+    yum install -y grub2 dhcp-server dhcpclient dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
+    
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    systemctl enable network
+    systemctl enable NetworkManager
+    systemctl enable networkmanager
     echo "Pwd@CentOS" | passwd --stdin root
 
     cd /
@@ -61,11 +63,18 @@ INIT_OS(){
 
     touch /etc/sysconfig/network
     mkdir /etc/sysconfig/network-scripts
-    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
-    DEVICE=eth0
-    BOOTPROTO=dhcp
-    ONBOOT=yes
-EOFILE
+    cat >/etc/sysconfig/network-scripts/ifcfg-ens33 <<EOFILE
+   
+TYPE="Ethernet"
+PROXY_METHOD="none"
+BROWSER_ONLY="no"
+BOOTPROTO="dhcp"
+DEFROUTE="yes"
+IPV4_FAILURE_FATAL="no"
+NAME="ens33"
+DEVICE="ens33"
+ONBOOT="yes"
+
 
     cat >>/etc/security/limits.conf<<EOFILE
 
