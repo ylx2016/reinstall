@@ -43,7 +43,7 @@ INIT_OS(){
     yum makecache
     yum makecache timer
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+    #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
     yum install -y grub2 dhcp-server dhcpclient dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
     
