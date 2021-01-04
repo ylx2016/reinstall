@@ -67,7 +67,7 @@ INIT_OS(){
 
     touch /etc/sysconfig/network
     mkdir /etc/sysconfig/network-scripts
-    cat >/etc/sysconfig/network-scripts/ifcfg-ens33 <<EOFILE
+    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
    
 TYPE="Ethernet"
 PROXY_METHOD="none"
@@ -76,8 +76,9 @@ BOOTPROTO="dhcp"
 DEFROUTE="yes"
 IPV4_FAILURE_FATAL="no"
 NAME="ens33"
-DEVICE="ens33"
+DEVICE="eth0"
 ONBOOT="yes"
+EOFILE
 
 
     cat >>/etc/security/limits.conf<<EOFILE
