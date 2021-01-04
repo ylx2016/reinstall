@@ -60,6 +60,7 @@ INIT_OS(){
     grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
+    mkdir /etc/sysconfig/network-scripts
     cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=dhcp
