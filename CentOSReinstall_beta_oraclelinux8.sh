@@ -37,7 +37,7 @@ EXTRACT_IMG(){
 
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 1.1.1.1" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
@@ -45,7 +45,7 @@ INIT_OS(){
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
     #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
-    yum install -y grub2 dhcp-server dhcpclient dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
+    yum install -y grub2  dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
