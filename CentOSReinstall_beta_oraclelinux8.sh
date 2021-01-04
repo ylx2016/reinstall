@@ -3,7 +3,7 @@
 # Default Password: Pwd@CentOS , Change it after installation !
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
-IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/7-slim/oraclelinux-7-slim-amd64-rootfs.tar.xz'
+IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/8.3/oraclelinux-8-amd64-rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 ROOTDIR='/os'
 
@@ -42,7 +42,7 @@ INIT_OS(){
     yum makecache fast
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
     yum install -y grub2 dhclient openssh-server passwd wget kernel nano
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
