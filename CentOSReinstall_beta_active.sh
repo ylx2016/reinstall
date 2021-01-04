@@ -2,7 +2,8 @@
 
 # Default Password: Pwd@CentOS , Change it after installation !
 
-IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
+#IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
+IMGURL='https://github.com/oracle/container-images/blob/dist-amd64/7.9/oraclelinux-7-amd64-rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 ROOTDIR='/os'
 
