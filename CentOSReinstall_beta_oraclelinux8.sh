@@ -41,9 +41,8 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache timer
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
-    yum install -y grub2 dhclient openssh-server passwd wget kernel nano
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install network-scripts htop -y
+    yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts htop
 
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
