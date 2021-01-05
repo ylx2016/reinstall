@@ -45,12 +45,9 @@ INIT_OS(){
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     #yum install -y grub2 dhclient openssh-server passwd wget kernel nano htop
     yum install -y grub2 dhclient openssh-server passwd wget nano kernel htop
-    wget -N -O kernel-c7.rpm https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/EfdY757Xd65IpWJbHfwZN14BMN1oDMoSF7LWR5brqFQc6g?download=1
-    wget -N -O kernel-headers-c7.rpm https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/EUtsfMqv4z1DigrlIhDKyF8Bniqr-rIcb6ui1Ahmsey_Gw?download=1	
-    yum install -y kernel-c7.rpm
-    yum install -y kernel-headers-c7.rpm
+    yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
+    yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
     
-
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
