@@ -37,6 +37,7 @@ EXTRACT_IMG(){
 
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache fast
@@ -49,7 +50,7 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    echo "Pwd@CentOS" | passwd --stdin root
+    echo "blog.ylx.me" | passwd --stdin root
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
