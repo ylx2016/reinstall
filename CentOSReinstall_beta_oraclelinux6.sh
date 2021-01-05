@@ -59,7 +59,7 @@ INIT_OS(){
     echo "blog.ylx.me" | passwd --stdin root
 	
 	rpm -e grub
-	yum install -y make bison gettext binutils flex gcc ncurses libusb SDL freetype device-mapper-libs
+	yum install -y make bison gettext binutils flex gcc ncurses libusb SDL freetype device-mapper-libs tar gzip xz
 	wget ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.gz
 	tar -xzf grub-2.00.tar.gz
 	cd grub-2.00
