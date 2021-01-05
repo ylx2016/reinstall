@@ -67,7 +67,7 @@ INIT_OS(){
 	cd /tmp/grub-2.00
 	./configure --sbindir=/sbin --prefix=/usr
 	make install
-
+	exit 1
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
     grub-install $device
