@@ -47,7 +47,7 @@ INIT_OS(){
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 dhcp-client openssh-server passwd wget kernel nano network-scripts NetworkManager htop
     #yum install -y grub2  dhcp-client openssh-server passwd wget kernel nano NetworkManager htop
-    yum install -y grub2  dhcp-client openssh-server passwd wget kernel* nano network-scripts htop
+    yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core kernel-modules kernel-tools kernel-tools-libs nano NetworkManager htop
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -55,8 +55,8 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    #systemctl enable NetworkManager
-    systemctl enable network
+    systemctl enable NetworkManager
+    #systemctl enable network
     echo "blog.ylx.me" | passwd --stdin root
 
     cd /
@@ -66,8 +66,15 @@ INIT_OS(){
     grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
-   # mkdir /etc/sysconfig/network-scripts
-  
+    mkdir /etc/sysconfig/network-scripts
+   cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
+    DEVICE=eth0
+BOOTPROTO=static
+ONBOOT=yes
+IPADDR=172.245.52.14
+GATEWAY=172.245.52.1
+NETMASK=255.255.255.0
+EOFILE
    
     cat >>/etc/security/limits.conf<<EOFILE
 
