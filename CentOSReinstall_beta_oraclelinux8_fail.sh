@@ -67,6 +67,11 @@ INIT_OS(){
 
     touch /etc/sysconfig/network
    # mkdir /etc/sysconfig/network-scripts
+   cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
+    DEVICE=eth0
+    BOOTPROTO=dhcp
+    ONBOOT=yes
+EOFILE
    
     cat >>/etc/security/limits.conf<<EOFILE
 
