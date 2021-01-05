@@ -44,9 +44,11 @@ INIT_OS(){
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
     #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
     #yum install -y grub2 dhclient openssh-server passwd wget kernel nano htop
-	yum install -y oraclelinux-release-el6
-	yum install -y oracle-epel-release-el6
-    yum install -y grub grub2 dhclient openssh-server passwd wget nano kernel htop
+    #yum install -y oraclelinux-release-el6
+    #yum install -y oracle-epel-release-el6 	
+    yum install -y https://dl.iuscommunity.org/pub/ius/stable/CentOS/6/i386/epel-release-6-5.noarch.rpm
+    yum install -y dhclient openssh-server passwd wget nano kernel htop
+    #yum install -y grub grub2 dhclient openssh-server passwd wget nano kernel htop
     #yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
     #yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
     
@@ -64,10 +66,10 @@ INIT_OS(){
 	cd /tmp
 	wget -O grub.tar.gz ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.gz
 	tar -xzf /tmp/grub.tar.gz
+	rm -rf /tmp/grub.tar.gz
 	cd /tmp/grub-2.00
 	./configure --sbindir=/sbin --prefix=/usr
 	make install
-	
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
     grub-install $device
@@ -89,16 +91,17 @@ EOFILE
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-    exit
-    exit 1
+    #exit
+   # exit 1
 }
 
 DOWNLOAD_IMG
 DELALL
 EXTRACT_IMG
 INIT_OS
-exit
+#exit
 rm -rf $ROOTDIR
+rm -rf /tmp/grub-2.00
 yum clean all
 sync
 reboot -f
