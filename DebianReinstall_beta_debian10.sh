@@ -42,7 +42,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     apt-get update
    
-    apt-get install -y grub2 systemd openssh-server passwd wget nano linux-image-amd64 linux-headers-amd64 htop isc-dhcp-client isc-dhcp-common
+    apt-get install -y grub2 systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common
 
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
@@ -51,7 +51,8 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    echo "blog.ylx.me" | passwd --stdin root
+    #echo "blog.ylx.me" | passwd --stdin root
+	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
@@ -60,6 +61,7 @@ INIT_OS(){
     grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     #touch /etc/sysconfig/network
+	touch /etc/network/interfaces
 	mkdir /etc/network
     cat >/etc/network/interfaces <<EOFILE
 source /etc/network/interfaces.d/*
