@@ -55,10 +55,10 @@ INIT_OS(){
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 
     cd /
-    device=$(fdisk -l | grep -o /dev/*da | head -1)
-    grub2-install $device
-    echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
-    grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+    #device=$(fdisk -l | grep -o /dev/*da | head -1)
+    #grub2-install $device
+   #echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
+    /usr/sbin/update-grub 2>/dev/null
 
     #touch /etc/sysconfig/network
 	touch /etc/network/interfaces
