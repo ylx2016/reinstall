@@ -37,12 +37,19 @@ EXTRACT_IMG(){
 
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache fast
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
-    yum install -y grub2 dhclient openssh-server passwd wget kernel nano
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    #yum install -y grub2 dhclient openssh-server passwd wget kernel nano htop
+    yum install -y grub2 dhclient openssh-server passwd wget nano htop
+    wget -N -O kernel-c7.rpm https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/EfdY757Xd65IpWJbHfwZN14BMN1oDMoSF7LWR5brqFQc6g?download=1
+	wget -N -O kernel-headers-c7.rpm https://chinagz2018-my.sharepoint.com/:u:/g/personal/ylx_chinagz2018_onmicrosoft_com/EUtsfMqv4z1DigrlIhDKyF8Bniqr-rIcb6ui1Ahmsey_Gw?download=1	
+	yum install -y kernel-c7.rpm
+    yum install -y kernel-headers-c7.rpm
+    
 
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -50,7 +57,7 @@ INIT_OS(){
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    echo "Pwd@CentOS" | passwd --stdin root
+    echo "ylx.me" | passwd --stdin root
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
