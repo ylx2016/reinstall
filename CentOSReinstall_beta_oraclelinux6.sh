@@ -60,8 +60,8 @@ INIT_OS(){
 	
 	rpm -e grub
 	yum install -y make bison gettext binutils flex gcc ncurses libusb SDL freetype device-mapper-libs
-	wget ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.xz
-	tar -Jxvf grub-2.00.tar.xz
+	wget ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.gz
+	tar -xzf grub-2.00.tar.gz
 	cd grub-2.00
 	./configure --sbindir=/sbin --prefix=/usr
 	make install
