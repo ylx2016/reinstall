@@ -42,9 +42,11 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache fast
     #yum groupinstall core -y --exclude="aic94xx-firmware* alsa-* btrfs-progs* iprutils ivtv* iwl*firmware libertas* NetworkManager* plymouth* irqbalance postfix tuned polkit*"
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
+    #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
     #yum install -y grub2 dhclient openssh-server passwd wget kernel nano htop
-    yum install -y grub2 dhclient openssh-server passwd wget nano kernel htop
+	yum install -y oraclelinux-release-el6
+	yum install -y oracle-epel-release-el6
+    yum install -y grub grub2 dhclient openssh-server passwd wget nano kernel htop
     #yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
     #yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
     
