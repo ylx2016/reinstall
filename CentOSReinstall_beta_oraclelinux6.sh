@@ -58,11 +58,13 @@ INIT_OS(){
     systemctl enable sshd
     echo "blog.ylx.me" | passwd --stdin root
 	
-	rpm -e grub
+    rpm -e grub
 	yum install -y make bison gettext binutils flex gcc ncurses libusb SDL freetype device-mapper-libs tar gzip xz
-	wget ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.gz
-	tar -xzf grub-2.00.tar.gz
-	cd grub-2.00
+	mkdir /tmp
+	cd /tmp
+	wget -O grub.tar.gz ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.gz
+	tar -xzf /tmp/grub.tar.gz
+	cd /tmp/grub-2.00
 	./configure --sbindir=/sbin --prefix=/usr
 	make install
 
