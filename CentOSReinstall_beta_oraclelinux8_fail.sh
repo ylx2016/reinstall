@@ -54,6 +54,8 @@ INIT_OS(){
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+    echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
+	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
     systemctl enable sshd
     systemctl enable NetworkManager
     #systemctl enable network
@@ -66,7 +68,7 @@ INIT_OS(){
     grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
-    mkdir /etc/sysconfig/network-scripts
+    #mkdir /etc/sysconfig/network-scripts
    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
 DEVICE=eth0
 BOOTPROTO=dhcp
@@ -80,7 +82,7 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
-    sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+    #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
 }
 
 DOWNLOAD_IMG
