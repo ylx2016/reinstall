@@ -57,12 +57,20 @@ INIT_OS(){
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
     echo "blog.ylx.me" | passwd --stdin root
+	
+	rpm -e grub
+	yum install make bison gettext binutils flex gcc ncurses libusb SDL freetype device-mapper-libs
+	wget ftp://ftp.gnu.org/gnu/grub/grub-2.00.tar.xz
+	tar -Jxvf grub-2.00.tar.xz
+	cd grub-2.00
+	./configure --sbindir=/sbin --prefix=/usr
+	make install
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
-    grub2-install $device
+    grub-install $device
     echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
-    grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+    grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
     cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
