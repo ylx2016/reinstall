@@ -71,7 +71,7 @@ cache_neg_max_ttl = 600
 #cert_file = "/etc/certs/${domain}_ecc/fullchain.cer"
 #cert_key_file = "/etc/certs/${domain}_ecc/${domain}.key"
 [query_log]
-  file = '/var/log/dnscrypt-proxy/query.log'
+  #file = '/var/log/dnscrypt-proxy/query.log'
   format = 'tsv'
 
 #[blacklist]
