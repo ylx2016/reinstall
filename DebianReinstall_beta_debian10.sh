@@ -42,7 +42,9 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     apt-get update
    
-    apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common network-manager
+    apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common networking-mlnx-common
+	apt-get install -y linux-image
+	apt-get install -y network-manager
 	apt-get install -y grub2 && echo "1"
 	apt-get install -y networking
     
