@@ -42,6 +42,7 @@ echo "  13) CentOS装CentOS7方案 Beta By dansnow          默认密码 blog.yl
 echo "  14) CentOS装oraclelinux7方案 Beta 带cloud内核     默认密码 blog.ylx.me"
 echo "  15) CentOS装oraclelinux8方案 Beta                默认密码 blog.ylx.me"
 echo "  16) CentOS装oraclelinux6方案 Beta                默认密码 blog.ylx.me"
+echo "  17) Debian/Ubuntu装Debian10方案 Beta             默认密码 blog.ylx.me"
 echo "  ======ylx增加的DD方案结束                                     "
 echo "                                                                "
 echo "  3) Latest 【Debian 10】(Recommend)"
@@ -91,6 +92,7 @@ case $Num in
   14) wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux7.sh && bash CentOSReinstall_beta_oraclelinux7.sh ;;
   15) wget -N -O CentOSReinstall_beta_oraclelinux8.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux8.sh && bash CentOSReinstall_beta_oraclelinux8.sh ;;
   16) wget -N -O CentOSReinstall_beta_oraclelinux6.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux6.sh && bash CentOSReinstall_beta_oraclelinux6.sh ;;
+  17) wget -N -O DebianReinstall_beta_debian10.sh https://github.com/ylx2016/reinstall/raw/master/DebianReinstall_beta_debian10.sh && bash DebianReinstall_beta_debian10.sh ;;
   
   31) bash Network-Reinstall-System-Modify.sh -CentOS_6 ;;
   32) bash Network-Reinstall-System-Modify.sh -Debian_8 ;;
