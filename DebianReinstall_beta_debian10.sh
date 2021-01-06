@@ -43,10 +43,12 @@ INIT_OS(){
     apt-get update
    
     #apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common networking-mlnx-common
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop
-	apt-get install -y linux-image
-	apt-get install -y network-manager
-	apt-get install -y grub2 && echo "1"
+	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager
+	#apt-get install -y linux-image
+	#apt-get install -y network-manager
+	#apt-get install -y grub2 && echo "1"
+	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+	
 	#apt-get install -y networking
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
@@ -59,8 +61,8 @@ INIT_OS(){
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 
     cd /
-    #device=$(fdisk -l | grep -o /dev/*da | head -1)
-    #grub2-install $device
+    device=$(fdisk -l | grep -o /dev/*da | head -1)
+    grub2-install $device
    #echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
     /usr/sbin/update-grub 2>/dev/null
 	
