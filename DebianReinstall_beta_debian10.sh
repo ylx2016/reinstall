@@ -41,7 +41,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     apt-get update
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager
+	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager net-tools
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
