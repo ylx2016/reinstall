@@ -42,11 +42,12 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     apt-get update
    
-    apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common networking-mlnx-common
+    #apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common networking-mlnx-common
+	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop
 	apt-get install -y linux-image
 	apt-get install -y network-manager
 	apt-get install -y grub2 && echo "1"
-	apt-get install -y networking
+	#apt-get install -y networking
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -64,17 +65,17 @@ INIT_OS(){
     /usr/sbin/update-grub 2>/dev/null
 	
 	systemctl enable network-manager
-	systemctl enable networking
+	#systemctl enable networking
     #touch /etc/sysconfig/network
 	touch /etc/network/interfaces
 	mkdir /etc/network
-    cat >/etc/network/interfaces <<EOFILE
-source /etc/network/interfaces.d/*
-auto lo
-iface lo inet loopback
-allow-hotplug ens33
-iface ens33 inet dhcp
-EOFILE
+   # cat >/etc/network/interfaces <<EOFILE
+#source /etc/network/interfaces.d/*
+#auto lo
+#iface lo inet loopback
+#allow-hotplug ens33
+#iface ens33 inet dhcp
+#EOFILE
 
     cat >>/etc/security/limits.conf<<EOFILE
 
