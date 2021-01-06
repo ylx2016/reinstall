@@ -41,23 +41,16 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     apt-get update
-   
-    #apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common networking-mlnx-common
 	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager
-	#apt-get install -y linux-image
-	#apt-get install -y network-manager
-	#apt-get install -y grub2 && echo "1"
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
-	#apt-get install -y networking
-    
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
     systemctl enable sshd
-    #echo "blog.ylx.me" | passwd --stdin root
+
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 	
 	echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
@@ -65,22 +58,11 @@ INIT_OS(){
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
-    grub-install $device
-   #echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
-    /usr/sbin/update-grub 2>/dev/null
+	grub-install $device
+	#echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
+	/usr/sbin/update-grub 2>/dev/null
 	
 	systemctl enable network-manager
-	#systemctl enable networking
-    #touch /etc/sysconfig/network
-	#touch /etc/network/interfaces
-	#mkdir /etc/network
-   # cat >/etc/network/interfaces <<EOFILE
-#source /etc/network/interfaces.d/*
-#auto lo
-#iface lo inet loopback
-#allow-hotplug ens33
-#iface ens33 inet dhcp
-#EOFILE
 
     cat >>/etc/security/limits.conf<<EOFILE
 
