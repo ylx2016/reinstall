@@ -42,8 +42,9 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     apt-get update
    
-    apt-get install -y grub2 systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common
-
+    apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop isc-dhcp-client isc-dhcp-common network-manager
+	apt-get install -y grub2 && echo "1"
+	apt-get install -y networking
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -60,7 +61,8 @@ INIT_OS(){
    #echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
     /usr/sbin/update-grub 2>/dev/null
 	
-    systemctl enable networking	
+	systemctl enable network-manager
+	systemctl enable networking
     #touch /etc/sysconfig/network
 	touch /etc/network/interfaces
 	mkdir /etc/network
