@@ -1,4 +1,32 @@
+#!/usr/bin/env bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
+
 dnsmasq_install=1
+check_sys
+check_sys(){
+	if [[ -f /etc/redhat-release ]]; then
+		release="centos"
+	elif cat /etc/issue | grep -q -E -i "debian"; then
+		release="debian"
+	elif cat /etc/issue | grep -q -E -i "ubuntu"; then
+		release="ubuntu"
+	elif cat /etc/issue | grep -q -E -i "centos|red hat|redhat"; then
+		release="centos"
+	elif cat /proc/version | grep -q -E -i "debian"; then
+		release="debian"
+	elif cat /proc/version | grep -q -E -i "ubuntu"; then
+		release="ubuntu"
+	elif cat /proc/version | grep -q -E -i "centos|red hat|redhat"; then
+		release="centos"
+    fi
+}	
+if [ $release == "centos" ];then
+	yum install wget curl tar zip -y
+else
+	apt-get install curl tar zip -y
+fi	
+
 if [[ ${dnsmasq_install} == 1 ]]; then
   if [[ ! -d /etc/dnscrypt-proxy/ ]]; then
     mkdir /etc/dnscrypt-proxy/
@@ -33,10 +61,11 @@ force_tcp = false
 timeout = 5000
 keepalive = 30
 lb_estimator = true
+lb_strategy = 'ph'
 log_level = 2
 use_syslog = true
-log_file = '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
-cert_refresh_delay = 86400
+#log_file = '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
+cert_refresh_delay = 1440
 tls_disable_session_tickets = false
 #tls_cipher_suite = [4865]
 fallback_resolvers = ['1.1.1.1:53', '8.8.8.8:53']
@@ -44,7 +73,7 @@ ignore_system_dns = true
 netprobe_timeout = 60
 netprobe_address = '1.1.1.1:53'
 # Maximum log files size in MB - Set to 0 for unlimited.
-log_files_max_size = 1024
+log_files_max_size = 0
 # How long to keep backup files, in days
 log_files_max_age = 7
 # Maximum log files backups to keep (or 0 to keep all backups)
@@ -84,18 +113,20 @@ cache_neg_max_ttl = 600
   urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
   cache_file = 'public-resolvers.md'
   minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+  refresh_delay = 12
   prefix = ''
   [sources.'opennic']
   urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/opennic.md', 'https://download.dnscrypt.info/dnscrypt-resolvers/v3/opennic.md']
   cache_file = 'opennic.md'
   minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+  refresh_delay = 12
   prefix = ''
   ## Anonymized DNS relays
   [sources.'relays']
   urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/relays.md', 'https://download.dnscrypt.info/resolvers-list/v3/relays.md']
   cache_file = 'relays.md'
   minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
-  refresh_delay = 72
+  refresh_delay = 12
   prefix = ''
 EOF
 rm -rf /etc/systemd/system/dnscrypt-proxy.service
@@ -129,10 +160,19 @@ systemctl enable dnscrypt-proxy.service
 clear
 colorEcho ${INFO} "Install dnscrypt-proxy ing"
 if [[ $(systemctl is-active dnsmasq) == active ]]; then
-	systemctl stop dnsmasq
+	#systemctl stop dnsmasq
 	systemctl disable dnsmasq
 fi
+if [[ $(systemctl is-active systemd-resolved) == active ]]; then
+  systemctl stop systemd-resolved
+  systemctl disable systemd-resolved
+  chattr -i /etc/resolvconf.conf
+  echo "nameserver 1.1.1.1" > /etc/resolv.conf
+  echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+  echo "nameserver 8.8.8.8" >> /etc/resolv.conf  
+fi
 dnsver=$(curl -s "https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+#dnsver=2.0.45
 curl -LO --progress-bar https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/${dnsver}/dnscrypt-proxy-linux_x86_64-${dnsver}.tar.gz
 tar -xvf dnscrypt-proxy-linux_x86_64-${dnsver}.tar.gz
 rm dnscrypt-proxy-linux_x86_64-${dnsver}.tar.gz
