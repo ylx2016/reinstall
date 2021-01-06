@@ -59,6 +59,9 @@ INIT_OS(){
     systemctl enable sshd
     #echo "blog.ylx.me" | passwd --stdin root
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
+	
+	echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
+	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf		
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
@@ -69,8 +72,8 @@ INIT_OS(){
 	systemctl enable network-manager
 	#systemctl enable networking
     #touch /etc/sysconfig/network
-	touch /etc/network/interfaces
-	mkdir /etc/network
+	#touch /etc/network/interfaces
+	#mkdir /etc/network
    # cat >/etc/network/interfaces <<EOFILE
 #source /etc/network/interfaces.d/*
 #auto lo
