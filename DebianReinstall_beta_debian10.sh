@@ -62,7 +62,7 @@ INIT_OS(){
 
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
-    grub2-install $device
+    grub-install $device
    #echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
     /usr/sbin/update-grub 2>/dev/null
 	
