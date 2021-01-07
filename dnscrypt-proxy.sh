@@ -3,14 +3,16 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
 dnsmasq_install=1
-check_sys
+
 check_sys(){
 	if [[ -f /etc/redhat-release ]]; then
 		yum install wget curl tar zip -y
 	else
 		apt-get install curl tar zip -y
     fi
-}	
+}
+
+check_sys
 
 if [[ ${dnsmasq_install} == 1 ]]; then
   if [[ ! -d /etc/dnscrypt-proxy/ ]]; then
