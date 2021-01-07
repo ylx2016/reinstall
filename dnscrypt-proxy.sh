@@ -6,26 +6,11 @@ dnsmasq_install=1
 check_sys
 check_sys(){
 	if [[ -f /etc/redhat-release ]]; then
-		release="centos"
-	elif cat /etc/issue | grep -q -E -i "debian"; then
-		release="debian"
-	elif cat /etc/issue | grep -q -E -i "ubuntu"; then
-		release="ubuntu"
-	elif cat /etc/issue | grep -q -E -i "centos|red hat|redhat"; then
-		release="centos"
-	elif cat /proc/version | grep -q -E -i "debian"; then
-		release="debian"
-	elif cat /proc/version | grep -q -E -i "ubuntu"; then
-		release="ubuntu"
-	elif cat /proc/version | grep -q -E -i "centos|red hat|redhat"; then
-		release="centos"
+		yum install wget curl tar zip -y
+	else
+		apt-get install curl tar zip -y
     fi
 }	
-if [ $release == "centos" ];then
-	yum install wget curl tar zip -y
-else
-	apt-get install curl tar zip -y
-fi	
 
 if [[ ${dnsmasq_install} == 1 ]]; then
   if [[ ! -d /etc/dnscrypt-proxy/ ]]; then
