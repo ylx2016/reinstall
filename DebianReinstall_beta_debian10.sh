@@ -41,7 +41,8 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     apt-get update
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager net-tools
+	#apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager net-tools
+	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
@@ -62,7 +63,19 @@ INIT_OS(){
 	#echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
 	/usr/sbin/update-grub 2>/dev/null
 	
-	systemctl enable network-manager
+	#systemctl enable network-manager
+	systemctl enable networking
+	
+	 cat >/etc/network/interfaces <<EOFILE
+   auto lo
+iface lo inet loopback
+
+auto ens3
+iface ens3 inet static
+address $MAINIP
+netmask $NETMASK
+gateway $GATEWAYIP
+EOFILE
 
     cat >>/etc/security/limits.conf<<EOFILE
 
@@ -72,7 +85,117 @@ INIT_OS(){
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+	
 }
+
+function isValidIp() {
+  local ip=$1
+  local ret=1
+  if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    ip=(${ip//\./ })
+    [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+    ret=$?
+  fi
+  return $ret
+}
+
+function ipCheck() {
+  isLegal=0
+  for add in $MAINIP $GATEWAYIP $NETMASK; do
+    isValidIp $add
+    if [ $? -eq 1 ]; then
+      isLegal=1
+    fi
+  done
+  return $isLegal
+}
+
+function GetIp() {
+  MAINIP=$(ip route get 1 | awk -F 'src ' '{print $2}' | awk '{print $1}')
+  GATEWAYIP=$(ip route | grep default | awk '{print $3}' | head -1)
+  SUBNET=$(ip -o -f inet addr show | awk '/scope global/{sub(/[^.]+\//,"0/",$4);print $4}' | head -1 | awk -F '/' '{print $2}')
+  value=$(( 0xffffffff ^ ((1 << (32 - $SUBNET)) - 1) ))
+  NETMASK="$(( (value >> 24) & 0xff )).$(( (value >> 16) & 0xff )).$(( (value >> 8) & 0xff )).$(( value & 0xff ))"
+}
+
+function UpdateIp() {
+  read -r -p "Your IP: " MAINIP
+  read -r -p "Your Gateway: " GATEWAYIP
+  read -r -p "Your Netmask: " NETMASK
+}
+
+function SetNetwork() {
+  isAuto='0'
+  if [[ -f '/etc/network/interfaces' ]];then
+    [[ ! -z "$(sed -n '/iface.*inet static/p' /etc/network/interfaces)" ]] && isAuto='1'
+    [[ -d /etc/network/interfaces.d ]] && {
+      cfgNum="$(find /etc/network/interfaces.d -name '*.cfg' |wc -l)" || cfgNum='0'
+      [[ "$cfgNum" -ne '0' ]] && {
+        for netConfig in `ls -1 /etc/network/interfaces.d/*.cfg`
+        do 
+          [[ ! -z "$(cat $netConfig | sed -n '/iface.*inet static/p')" ]] && isAuto='1'
+        done
+      }
+    }
+  fi
+  
+  if [[ -d '/etc/sysconfig/network-scripts' ]];then
+    cfgNum="$(find /etc/network/interfaces.d -name '*.cfg' |wc -l)" || cfgNum='0'
+    [[ "$cfgNum" -ne '0' ]] && {
+      for netConfig in `ls -1 /etc/sysconfig/network-scripts/ifcfg-* | grep -v 'lo$' | grep -v ':[0-9]\{1,\}'`
+      do 
+        [[ ! -z "$(cat $netConfig | sed -n '/BOOTPROTO.*[sS][tT][aA][tT][iI][cC]/p')" ]] && isAuto='1'
+      done
+    }
+  fi
+}
+
+function NetMode() {
+
+  # if [ "$isAuto" == '0' ]; then
+    # read -r -p "Using DHCP to configure network automatically? [Y/n]:" input
+    # case $input in
+      # [yY][eE][sS]|[yY]) NETSTR='' ;;
+      # [nN][oO]|[nN]) isAuto='1' ;;
+      # *) clear; echo "Canceled by user!"; exit 1;;
+    # esac
+  # fi
+  isAuto='1'
+
+  if [ "$isAuto" == '1' ]; then
+    GetIp
+    ipCheck
+    if [ $? -ne 0 ]; then
+      echo -e "Error occurred when detecting ip. Please input manually.\n"
+      UpdateIp
+    else
+      
+      echo "IP: $MAINIP"
+      echo "Gateway: $GATEWAYIP"
+      echo "Netmask: $NETMASK"
+      echo -e "\n"
+      read -r -p "Confirm? [Y/n]:" input
+      case $input in
+        [yY][eE][sS]|[yY]) ;;
+        [nN][oO]|[nN])
+          echo -e "\n"
+          UpdateIp
+          ipCheck
+          [[ $? -ne 0 ]] && {
+            clear
+            echo -e "Input error!\n"
+            exit 1
+          }
+        ;;
+        *) clear; echo "Canceled by user!"; exit 1;;
+      esac
+    fi
+    NETSTR="--ip-addr ${MAINIP} --ip-gate ${GATEWAYIP} --ip-mask ${NETMASK}"
+  fi
+}
+
+SetNetwork
+NetMode
 
 DOWNLOAD_IMG
 DELALL
