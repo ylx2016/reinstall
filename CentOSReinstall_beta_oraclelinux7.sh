@@ -55,8 +55,7 @@ INIT_OS(){
     yum makecache fast
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 	yum install -y dhclient openssh-server passwd wget nano kernel htop
-    yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
-    yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
+   
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
@@ -65,6 +64,8 @@ INIT_OS(){
 		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
+		 yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
+		yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
 		yum install -y grub2
 		cd /
 		grub2-install $device
@@ -99,8 +100,6 @@ EOFILE
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-	
-	exit
 }
 
 function isValidIp() {
