@@ -146,14 +146,15 @@ function SetNetwork() {
 
 function NetMode() {
 
-  if [ "$isAuto" == '0' ]; then
-    read -r -p "Using DHCP to configure network automatically? [Y/n]:" input
-    case $input in
-      [yY][eE][sS]|[yY]) NETSTR='' ;;
-      [nN][oO]|[nN]) isAuto='1' ;;
-      *) clear; echo "Canceled by user!"; exit 1;;
-    esac
-  fi
+  # if [ "$isAuto" == '0' ]; then
+    # read -r -p "Using DHCP to configure network automatically? [Y/n]:" input
+    # case $input in
+      # [yY][eE][sS]|[yY]) NETSTR='' ;;
+      # [nN][oO]|[nN]) isAuto='1' ;;
+      # *) clear; echo "Canceled by user!"; exit 1;;
+    # esac
+  # fi
+  isAuto='1'
 
   if [ "$isAuto" == '1' ]; then
     GetIp
