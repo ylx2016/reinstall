@@ -78,7 +78,7 @@ INIT_OS(){
 		
 		grub-install
 		update-grub
-		cd /boot/efi/EFI && mkdir boot &&cp debian/grubx64.efi boot/bootx64.efi
+		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
 		cd /
 		
 	elif [[ ${sysbios} == "1" ]];then
@@ -128,8 +128,7 @@ EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
 	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
-	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
-	exit		
+	echo "nameserver 9.9.9.9" >> /etc/resolv.conf		
 }
 
 function isValidIp() {
