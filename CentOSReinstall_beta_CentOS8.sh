@@ -61,9 +61,9 @@ INIT_OS(){
 	if [[ ${sysefi} == "1" ]];then
 		cd /
 		yum install grub2-efi grub2-efi-modules shim -y
-		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
-		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
 		yum install -y grub2
 		cd /
