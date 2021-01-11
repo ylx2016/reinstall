@@ -70,7 +70,7 @@ INIT_OS(){
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		apt-get install grub2-efi grub2-efi-modules shim -y
+		apt-get install grub-efi -y
 		
 		grub2-install --target=x86_64-efi --bootloader-id=Debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		/usr/sbin/update-grub
