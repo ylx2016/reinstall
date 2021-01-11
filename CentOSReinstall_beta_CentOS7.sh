@@ -90,6 +90,8 @@ INIT_OS(){
 	IPADDR=$MAINIP
 	GATEWAY=$GATEWAYIP
 	NETMASK=$NETMASK
+	DNS1=1.1.1.1
+	DNS2=8.8.8.8
 EOFILE
 
     cat >>/etc/security/limits.conf<<EOFILE
