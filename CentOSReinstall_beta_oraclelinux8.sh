@@ -61,7 +61,7 @@ INIT_OS(){
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		yum install grub2-efi grub2-efi-modules shim -y
+		yum install grub2-efi grub2-efi-modules shim grub2-efi-x64 grub2-efi-x64-modules -y
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
