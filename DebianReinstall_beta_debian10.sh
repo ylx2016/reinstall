@@ -76,7 +76,7 @@ INIT_OS(){
 		/usr/sbin/update-grub
 		grub2-install --target=x86_64-efi --bootloader-id=Debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
-		apt-get install -y grub2
+		#apt-get install -y grub2
 		cd /
 		grub2-install $device
 		/usr/sbin/update-grub
