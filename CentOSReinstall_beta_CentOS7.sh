@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Default Password: Pwd@CentOS , Change it after installation !
+# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-7.8.2003-x86_64/docker/centos-7.8.2003-x86_64-docker.tar.xz'
 IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-7-x86_64/docker/centos-7-x86_64-docker.tar.xz'
@@ -27,9 +27,11 @@ DELALL(){
 	if [ -f "/boot/efi/EFI/centos/grub.cfg" ]; then
 		sysefi="1"
 		sysefifile="/boot/efi/EFI/centos/grub.cfg"
+		bootloaderid="centos"
 	elif [ -f "/boot/efi/EFI/redhat/grub.cfg" ]; then
 		sysefi="1"
 		sysefifile="/boot/efi/EFI/redhat/grub.cfg"
+		bootloaderid="redhat"
 	else
 		sysbios="1"
 	fi
@@ -60,9 +62,10 @@ INIT_OS(){
 	if [[ ${sysefi} == "1" ]];then
 		cd /
 		yum install grub2-efi grub2-efi-modules shim -y
-		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
-		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		
+		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
 		 yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
 		yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
