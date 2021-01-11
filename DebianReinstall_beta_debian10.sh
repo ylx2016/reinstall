@@ -62,7 +62,7 @@ INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
 	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
-    export LC_ALL=en_US.UTF-8
+    export LC_ALL=C.UTF-8
     apt-get update
 	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
