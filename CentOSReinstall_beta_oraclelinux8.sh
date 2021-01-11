@@ -50,11 +50,13 @@ EXTRACT_IMG(){
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop
+    # yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop
+	yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -64,8 +66,8 @@ INIT_OS(){
     echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
     systemctl enable sshd
-    systemctl enable NetworkManager
-    #systemctl enable network
+    # systemctl enable NetworkManager
+    systemctl enable network
     echo "blog.ylx.me" | passwd --stdin root
 
     cd /
@@ -82,6 +84,8 @@ INIT_OS(){
 	IPADDR=$MAINIP
 	GATEWAY=$GATEWAYIP
 	NETMASK=$NETMASK
+	DNS1=1.1.1.1
+	DNS2=8.8.8.8
 EOFILE
    
     cat >>/etc/security/limits.conf<<EOFILE
