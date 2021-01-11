@@ -65,6 +65,8 @@ INIT_OS(){
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		yum install NetworkManager -y
+		systemctl enable NetworkManager
 	elif [[ ${sysbios} == "1" ]];then
 		#yum install -y grub2
 		cd /
