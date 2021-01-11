@@ -56,7 +56,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache fast
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-	yum install -y dhclient openssh-server passwd wget nano kernel htop
+    yum install -y grub2 dhclient openssh-server passwd wget nano kernel htop
    
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
@@ -67,9 +67,9 @@ INIT_OS(){
 		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
-		 yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
+		yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-5.10.3_cloud-1.x86_64.rpm
 		yum install -y https://github.com/ylx2016/kernel/releases/download/cloud/kernel-headers-5.10.3_cloud-1.x86_64.rpm
-		yum install -y grub2
+		#yum install -y grub2
 		cd /
 		grub2-install $device
 		echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
