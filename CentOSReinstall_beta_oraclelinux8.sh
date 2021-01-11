@@ -103,7 +103,6 @@ EOFILE
     * hard nproc 65535
 EOFILE
     #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-    exit
 }
 
 function isValidIp() {
