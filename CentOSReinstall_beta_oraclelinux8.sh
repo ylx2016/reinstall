@@ -50,14 +50,27 @@ EXTRACT_IMG(){
 INIT_OS(){
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+    echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    # yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop
-	yum install -y grub2  dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
+    yum install -y dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
     
+    device=$(fdisk -l | grep -o /dev/*da | head -1)
+	if [[ ${sysefi} == "1" ]];then
+		cd /
+		yum install grub2-efi grub2-efi-modules shim -y
+		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
+		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+	elif [[ ${sysbios} == "1" ]];then
+		yum install -y grub2
+		cd /
+		grub2-install $device
+		echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
+		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+	fi	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
@@ -66,15 +79,8 @@ INIT_OS(){
     echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
     systemctl enable sshd
-    # systemctl enable NetworkManager
     systemctl enable network
     echo "blog.ylx.me" | passwd --stdin root
-
-    cd /
-    device=$(fdisk -l | grep -o /dev/*da | head -1)
-    grub2-install $device
-    echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
-    grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 
     touch /etc/sysconfig/network
     cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
