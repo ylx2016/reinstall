@@ -36,12 +36,12 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
+	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     apt-get update
-	#apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop network-manager net-tools
 	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
@@ -60,10 +60,8 @@ INIT_OS(){
     cd /
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	grub-install $device
-	#echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
 	/usr/sbin/update-grub 2>/dev/null
 	
-	#systemctl enable network-manager
 	systemctl enable networking
 	
 	 cat >/etc/network/interfaces <<EOFILE
@@ -85,6 +83,9 @@ EOFILE
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	
 }
 
