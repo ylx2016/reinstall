@@ -71,10 +71,16 @@ INIT_OS(){
 	if [[ ${sysefi} == "1" ]];then
 		cd /
 		#apt-get install grub-efi -y
+		apt-get install -y grub-efi grub-efi-amd64
+		#grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		#/usr/sbin/update-grub
+		#grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		
-		grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		/usr/sbin/update-grub
-		grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub-install
+		update-grub
+		cd /boot/efi/EFI && mkdir boot &&cp debian/grubx64.efi boot/bootx64.efi
+		cd /
+		
 	elif [[ ${sysbios} == "1" ]];then
 		#apt-get install -y grub2
 		cd /
