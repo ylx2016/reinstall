@@ -2,8 +2,8 @@
 
 # Default Password: Pwd@CentOS , Change it after installation !
 
-IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8.1.1911-x86_64/docker/CentOS-8-Container-8.1.1911-20200113.3-layer.x86_64.tar.xz'
-#IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8-x86_64/docker/centos-8-x86_64.tar.xz'
+#IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8.1.1911-x86_64/docker/CentOS-8-Container-8.1.1911-20200113.3-layer.x86_64.tar.xz'
+IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8-x86_64/docker/centos-8-x86_64.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 ROOTDIR='/os'
 
@@ -54,6 +54,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
+    yum install glibc-langpack-en -y
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     yum install -y dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
     
