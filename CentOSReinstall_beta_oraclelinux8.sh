@@ -56,7 +56,7 @@ INIT_OS(){
     yum makecache
     yum install glibc-langpack-en -y
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install -y dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
+    yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
     
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
@@ -66,7 +66,7 @@ INIT_OS(){
 		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
-		yum install -y grub2
+		#yum install -y grub2
 		cd /
 		grub2-install $device
 		echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
