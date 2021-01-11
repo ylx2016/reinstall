@@ -21,6 +21,28 @@ DOWNLOAD_IMG(){
 
 DELALL(){
     cp /etc/fstab $ROOTDIR
+	sysbios="0"
+	sysefi="0"
+	sysefifile=""
+	if [ -f "/boot/efi/EFI/BOOT/grub.cfg" ]; then
+		sysefi="1"
+		#sysefifile="/boot/efi/EFI/centos/grub.cfg"
+		#bootloaderid="Debian"
+	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
+		sysefi="1"
+		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
+		#bootloaderid="Debian"
+	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
+		sysefi="1"
+		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
+		#bootloaderid="Debian"	
+	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
+		sysefi="1"
+		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
+		#bootloaderid="Debian"		
+	else
+		sysbios="1"
+	fi
     if command -v chattr >/dev/null 2>&1; then
         find / -type f \( ! -path '/dev/*' -and ! -path '/proc/*' -and ! -path '/sys/*' -and ! -path "$ROOTDIR/*" \) \
             -exec chattr -i {} + 2>/dev/null || true
@@ -44,6 +66,21 @@ INIT_OS(){
     apt-get update
 	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+	
+	device=$(fdisk -l | grep -o /dev/*da | head -1)
+	if [[ ${sysefi} == "1" ]];then
+		cd /
+		apt-get install grub2-efi grub2-efi-modules shim -y
+		
+		grub2-install --target=x86_64-efi --bootloader-id=Debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		/usr/sbin/update-grub
+		grub2-install --target=x86_64-efi --bootloader-id=Debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+	elif [[ ${sysbios} == "1" ]];then
+		apt-get install -y grub2
+		cd /
+		grub2-install $device
+		/usr/sbin/update-grub
+	fi
 	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
@@ -86,7 +123,7 @@ EOFILE
 	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
 	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
-	
+	exit		
 }
 
 function isValidIp() {
