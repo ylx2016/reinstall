@@ -9,6 +9,7 @@ backup from https://www.cxthhhhh.com/network-reinstall-system-modify
 https://www.hostloc.com/thread-717814-1-1.html
 
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
+    wget -N -O CentOSReinstall_beta_CentOS8.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_CentOS8.sh && bash CentOSReinstall_beta_CentOS8.sh
     wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux7.sh && bash            CentOSReinstall_beta_oraclelinux7.sh
     wget -N -O CentOSReinstall_beta_oraclelinux8.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux8.sh && bash CentOSReinstall_beta_oraclelinux8.sh
     wget -N -O CentOSReinstall_beta_oraclelinux6.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux6.sh && bash CentOSReinstall_beta_oraclelinux6.sh
