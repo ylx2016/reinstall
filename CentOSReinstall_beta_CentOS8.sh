@@ -56,7 +56,7 @@ INIT_OS(){
     yum makecache
     yum install glibc-langpack-en -y
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop brotli coreutils diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils
+    yum install -y --allowerasing grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop brotli coreutils diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils
     
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
