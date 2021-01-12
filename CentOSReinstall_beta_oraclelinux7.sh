@@ -102,7 +102,7 @@ EOFILE
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-    wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x tcpx.sh
+    wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 }
 
 function isValidIp() {
