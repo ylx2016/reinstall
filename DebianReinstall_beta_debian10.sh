@@ -126,9 +126,10 @@ EOFILE
     * hard nproc 65535
 EOFILE
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
-	echo "nameserver 9.9.9.9" >> /etc/resolv.conf		
+    echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+    wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x tcpx.sh
 }
 
 function isValidIp() {
