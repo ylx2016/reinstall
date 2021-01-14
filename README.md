@@ -13,6 +13,7 @@ https://www.hostloc.com/thread-717814-1-1.html
     wget -N -O CentOSReinstall_beta_oraclelinux8.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux8.sh && bash CentOSReinstall_beta_oraclelinux8.sh
     wget -N -O CentOSReinstall_beta_oraclelinux6.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux6.sh && bash CentOSReinstall_beta_oraclelinux6.sh
     wget -N -O DebianReinstall_beta_debian10.sh https://github.com/ylx2016/reinstall/raw/master/DebianReinstall_beta_debian10.sh && bash DebianReinstall_beta_debian10.sh
+    wget -N -O DebianReinstall_beta_debian11.sh https://github.com/ylx2016/reinstall/raw/master/DebianReinstall_beta_debian11.sh && bash DebianReinstall_beta_debian11.sh
 
 一键dnscrypt-proxy from johnrosen1
 
