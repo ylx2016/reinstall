@@ -56,7 +56,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache fast
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-    yum install -y grub2 util-linux dhclient openssh-server passwd wget nano kernel htop
+    yum install -y grub2* util-linux dhclient openssh-server passwd wget nano kernel htop
    
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
