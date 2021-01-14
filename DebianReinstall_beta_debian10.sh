@@ -64,7 +64,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet
+	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2 -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
@@ -84,8 +84,9 @@ INIT_OS(){
 	elif [[ ${sysbios} == "1" ]];then
 		#apt-get install -y grub2
 		cd /
-		grub2-install $device
+		grub-install $device
 		/usr/sbin/update-grub
+		grub-install $device
 	fi
 	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
@@ -100,10 +101,10 @@ INIT_OS(){
 	echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf		
 
-    cd /
-    device=$(fdisk -l | grep -o /dev/*da | head -1)
-	grub-install $device
-	/usr/sbin/update-grub 2>/dev/null
+    #cd /
+    #device=$(fdisk -l | grep -o /dev/*da | head -1)
+	#grub-install $device
+	#/usr/sbin/update-grub 2>/dev/null
 	
 	systemctl enable networking
 	
