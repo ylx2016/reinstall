@@ -52,6 +52,7 @@ INIT_OS(){
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     rm -f /root/anaconda-ks.cfg
+    yum remove coreutils-single -y
     export LC_ALL=en_US.UTF-8
     yum makecache
     #yum install glibc-langpack-en -y
