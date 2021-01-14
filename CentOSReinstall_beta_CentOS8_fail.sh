@@ -54,9 +54,11 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
-    yum install glibc-langpack-en -y
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-    yum install -y --allowerasing grub2* util-linux coreutils net-tools cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop brotli diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils
+    #yum install glibc-langpack-en -y
+    #yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+    #yum install -y --allowerasing grub2* util-linux coreutils net-tools cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop brotli diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils
+    #yum install -y --allowerasing grub2* util-linux coreutils net-tools cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop brotli diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils  glibc-all-langpacks glibc-langpack-en glibc-minimal-langpack
+    yum install -y --allowerasing grub2* util-linux coreutils net-tools cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts brotli diffutils dnf-plugins-core glibc-all-langpacks libedit libestr libfastjson libselinux-utils libssh libssh-config logrotate ncurses openssh-clients policycoreutils python3-dateutil python3-dnf-plugins-core  python3-six rsyslog yum-utils glibc-all-langpacks glibc-langpack-en glibc-minimal-langpack
     
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
