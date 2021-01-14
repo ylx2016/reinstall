@@ -71,6 +71,7 @@ INIT_OS(){
 		grub2-install $device
 		echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+		grub2-install $device
 	fi	
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
