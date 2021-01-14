@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Default Password: Pwd@CentOS , Change it after installation !
+# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/7/oraclelinux-7-amd64-rootfs.tar.xz'
