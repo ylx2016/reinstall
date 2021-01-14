@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Default Password: Pwd@CentOS , Change it after installation !
+# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8.1.1911-x86_64/docker/CentOS-8-Container-8.1.1911-20200113.3-layer.x86_64.tar.xz'
 IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-8-x86_64/docker/centos-8-x86_64.tar.xz'
