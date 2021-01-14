@@ -131,7 +131,6 @@ EOFILE
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
-	exit
 }
 
 function isValidIp() {
