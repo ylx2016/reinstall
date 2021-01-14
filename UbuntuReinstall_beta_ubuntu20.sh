@@ -3,7 +3,7 @@
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
-IMGURL='https://github.com/tianon/docker-brew-ubuntu-core/raw/dist-amd64/groovy/ubuntu-groovy-core-cloudimg-amd64-root.tar.gz'
+IMGURL='https://partner-images.canonical.com/core/groovy/current/ubuntu-groovy-core-cloudimg-amd64-root.tar.gz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 ROOTDIR='/os'
 
