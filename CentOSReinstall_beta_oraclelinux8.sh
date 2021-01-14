@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Default Password: Pwd@CentOS , Change it after installation !
+# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
@@ -57,7 +57,7 @@ INIT_OS(){
     yum install glibc-langpack-en -y
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
-    yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop
+    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop
      
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
