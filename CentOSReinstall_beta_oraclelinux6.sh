@@ -54,7 +54,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache fast
     yum install -y https://dl.iuscommunity.org/pub/ius/stable/CentOS/6/i386/epel-release-6-5.noarch.rpm
-    yum install -y dhclient openssh-server passwd wget nano kernel htop
+    yum install -y dhclient openssh-server passwd wget nano kernel htop coreutils net-tools util-linux
     
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
