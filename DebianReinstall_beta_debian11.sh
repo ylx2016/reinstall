@@ -4,13 +4,18 @@
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
+CNIMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
     if command -v wget >/dev/null 2>&1 ;then
         mkdir $ROOTDIR
-        wget -O "$ROOTDIR/os.tar.xz" $IMGURL
+		if [[ "$isCN" == '1' ]];then
+			wget -O "$ROOTDIR/os.tar.xz" $CNIMGURL
+		else
+			wget -O "$ROOTDIR/os.tar.xz" $IMGURL
+		fi	
         wget -O "$ROOTDIR/busybox" $BUSYBOX
         chmod +x "$ROOTDIR/busybox"
     else
@@ -58,9 +63,15 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
-	echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
-	echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+	if [[ "$isCN" == '1' ]];then
+		echo "nameserver 114.114.114.114" > /etc/resolv.conf
+		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
+		sed -i 's#http://deb.debian.org#http://mirrors.163.com#g' /etc/apt/sources.list
+	else
+		echo "nameserver 1.1.1.1" > /etc/resolv.conf
+		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+	fi
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
@@ -94,7 +105,7 @@ INIT_OS(){
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-    systemctl enable sshd
+    systemctl enable ssh
 
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 	
@@ -108,16 +119,28 @@ INIT_OS(){
 	
 	systemctl enable networking
 	
+	network_adapter_name=$( ls /sys/class/net | grep ens )
+	
+	if [ "$isAuto" == '1' ]; then
 	 cat >/etc/network/interfaces <<EOFILE
    auto lo
 iface lo inet loopback
 
-auto ens3
-iface ens3 inet static
+auto $network_adapter_name
+iface $network_adapter_name inet static
 address $MAINIP
 netmask $NETMASK
 gateway $GATEWAYIP
 EOFILE
+	else
+cat >/etc/network/interfaces <<EOFILE
+   auto lo
+iface lo inet loopback
+
+auto $network_adapter_name
+iface $network_adapter_name inet dhcp
+EOFILE
+	fi
 
     cat >>/etc/security/limits.conf<<EOFILE
 
@@ -126,11 +149,17 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
-    sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+    # sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+   if [[ "$isCN" == '1' ]];then
+		echo "nameserver 114.114.114.114" > /etc/resolv.conf
+		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
+	else
+		echo "nameserver 1.1.1.1" > /etc/resolv.conf
+		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+	fi
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
+	# exit
 }
 
 function isValidIp() {
@@ -170,6 +199,12 @@ function UpdateIp() {
 }
 
 function SetNetwork() {
+	isCN='0'
+	geoip=$(wget --no-check-certificate -qO- https://api.ip.sb/geoip -T 10 | grep "\"country_code\":\"CN\"")
+	if [[ "$geoip" != "" ]];then
+		isCN='1'
+	fi
+
   isAuto='0'
   if [[ -f '/etc/network/interfaces' ]];then
     [[ ! -z "$(sed -n '/iface.*inet static/p' /etc/network/interfaces)" ]] && isAuto='1'
@@ -197,15 +232,16 @@ function SetNetwork() {
 
 function NetMode() {
 
-  # if [ "$isAuto" == '0' ]; then
-    # read -r -p "Using DHCP to configure network automatically? [Y/n]:" input
-    # case $input in
-      # [yY][eE][sS]|[yY]) NETSTR='' ;;
-      # [nN][oO]|[nN]) isAuto='1' ;;
-      # *) clear; echo "Canceled by user!"; exit 1;;
-    # esac
-  # fi
-  isAuto='1'
+  if [ "$isAuto" == '0' ]; then
+    read -p "设置网络为动态获取IP吗(DHCP) [Y/n] :" input
+	[ -z "${input}" ] && input="y"
+    case $input in
+      [yY][eE][sS]|[yY]) NETSTR='' ;;
+      [nN][oO]|[nN]) isAuto='1' ;;
+      *) clear; echo "Canceled by user!"; exit 1;;
+    esac
+  fi
+  # isAuto='1'
 
   if [ "$isAuto" == '1' ]; then
     GetIp
@@ -219,7 +255,8 @@ function NetMode() {
       echo "Gateway: $GATEWAYIP"
       echo "Netmask: $NETMASK"
       echo -e "\n"
-      read -r -p "Confirm? [Y/n]:" input
+      read -p "Confirm? [Y/n] :" input
+	  [ -z "${input}" ] && input="y"
       case $input in
         [yY][eE][sS]|[yY]) ;;
         [nN][oO]|[nN])
@@ -250,4 +287,11 @@ INIT_OS
 rm -rf $ROOTDIR
 apt-get clean all
 sync
-reboot -f
+# reboot -f
+
+read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :" yn
+[ -z "${yn}" ] && yn="y"
+if [[ $yn == [Yy] ]]; then
+	echo -e "${Info} VPS 重启中..."
+	reboot -f
+fi
