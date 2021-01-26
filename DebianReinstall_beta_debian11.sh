@@ -112,14 +112,13 @@ INIT_OS(){
 	echo "net.core.default_qdisc=fq_pie" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf		
 
-    # cd /
-    # device=$(fdisk -l | grep -o /dev/*da | head -1)
-	# grub-install $device
-	# /usr/sbin/update-grub 2>/dev/null
+    sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
+	/usr/sbin/update-grub
 	
 	systemctl enable networking
-	
-	network_adapter_name=$( ls /sys/class/net | grep ens )
+	# network_adapter_name=$( ls /sys/class/net | grep ens )
+	network_adapter_name="eth0"
 	
 	if [ "$isAuto" == '1' ]; then
 	 cat >/etc/network/interfaces <<EOFILE
@@ -158,6 +157,7 @@ EOFILE
 		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	fi
+	
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 	# exit
 }
