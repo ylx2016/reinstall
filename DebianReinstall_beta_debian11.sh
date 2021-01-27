@@ -4,19 +4,21 @@
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
-CNIMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
+CN_IMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
     if command -v wget >/dev/null 2>&1 ;then
         mkdir $ROOTDIR
 		if [[ "$isCN" == '1' ]];then
-			wget -O "$ROOTDIR/os.tar.xz" $CNIMGURL
+			wget -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
+			wget -O "$ROOTDIR/busybox" $CN_BUSYBOX
 		else
 			wget -O "$ROOTDIR/os.tar.xz" $IMGURL
-		fi	
-        wget -O "$ROOTDIR/busybox" $BUSYBOX
+			wget -O "$ROOTDIR/busybox" $BUSYBOX
+		fi
         chmod +x "$ROOTDIR/busybox"
     else
         echo "ERROR: wget not found !"
