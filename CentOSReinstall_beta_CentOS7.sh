@@ -28,7 +28,7 @@ DOWNLOAD_IMG(){
 
 DELALL(){
     cp /etc/fstab $ROOTDIR
-	cp /etc/default/grub $ROOTDIR
+	#cp /etc/default/grub $ROOTDIR
 	sysbios="0"
 	sysefi="0"
 	sysefifile=""
@@ -55,7 +55,7 @@ EXTRACT_IMG(){
     tar="$ROOTDIR/busybox tar"
     $xzcat "$ROOTDIR/os.tar.xz" | $tar -x -C /
     mv -f $ROOTDIR/fstab /etc
-	mv -f $ROOTDIR/grub /etc/default
+	#mv -f $ROOTDIR/grub /etc/default
 }
 
 INIT_OS(){
@@ -69,6 +69,7 @@ INIT_OS(){
 		mv /etc/yum.repos.d/CentOS-Base.repo{,.bak}
 		curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.163.com/.help/CentOS7-Base-163.repo
 		curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+		yum install -y https://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
 	else
 		dns_name1="1.1.1.1"
 		dns_name2="8.8.8.8"
@@ -90,6 +91,8 @@ INIT_OS(){
 		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
+		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
@@ -104,7 +107,6 @@ INIT_OS(){
 		#yum install -y grub2
 		cd /
 		grub2-install $device
-		#echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" > /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
@@ -115,7 +117,8 @@ INIT_OS(){
 		# grub2-install $device
 	fi	
 	
-	
+	sed -i '/Port /d' /etc/ssh/sshd_config
+	echo "Port 52890" >> /etc/ssh/sshd_config
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
@@ -154,6 +157,16 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
+
+	if [[ "$isCN" == '1' ]];then
+		echo "nameserver 114.114.114.114" > /etc/resolv.conf
+		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
+	else
+		echo "nameserver 1.1.1.1" > /etc/resolv.conf
+		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+	fi
+	
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 }

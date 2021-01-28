@@ -4,14 +4,21 @@
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
+CN_IMGURL='https://raw.sevencdn.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
     if command -v wget >/dev/null 2>&1 ;then
         mkdir $ROOTDIR
-        wget -O "$ROOTDIR/os.tar.xz" $IMGURL
-        wget -O "$ROOTDIR/busybox" $BUSYBOX
+		if [[ "$isCN" == '1' ]];then
+			wget -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
+			wget -O "$ROOTDIR/busybox" $CN_BUSYBOX
+		else
+			wget -O "$ROOTDIR/os.tar.xz" $IMGURL
+			wget -O "$ROOTDIR/busybox" $BUSYBOX
+		fi
         chmod +x "$ROOTDIR/busybox"
     else
         echo "ERROR: wget not found !"
@@ -48,14 +55,29 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-    echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+	 if [[ "$isCN" == '1' ]];then
+		dns_name1="114.114.114.114"
+		dns_name2="223.5.5.5"
+		echo "nameserver $dns_name1" > /etc/resolv.conf
+		echo "nameserver $dns_name2" >> /etc/resolv.conf
+		#mv /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel.repo.backup
+		#mv /etc/yum.repos.d/epel-testing.repo /etc/yum.repos.d/epel-testing.repo.backup
+		mv /etc/yum.repos.d/CentOS-Base.repo{,.bak}
+		curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.163.com/.help/CentOS8-Base-163.repo
+		curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/Centos-8.repo
+		yum install -y https://mirrors.aliyun.com/epel/epel-release-latest-8.noarch.rpm
+	else
+		dns_name1="1.1.1.1"
+		dns_name2="8.8.8.8"
+		echo "nameserver $dns_name1" > /etc/resolv.conf
+		echo "nameserver $dns_name2" >> /etc/resolv.conf
+		# echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+		yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+	fi
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
     yum install glibc-langpack-en -y
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
     #yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
     yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop util-linux coreutils net-tools
      
@@ -64,6 +86,10 @@ INIT_OS(){
 		cd /
 		yum install grub2-efi grub2-efi-modules shim grub2-efi-x64 grub2-efi-x64-modules -y
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
+		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
+		echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		#yum install NetworkManager -y
@@ -72,10 +98,16 @@ INIT_OS(){
 		#yum install -y grub2
 		cd /
 		grub2-install $device
-		echo -e "GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX=\"net.ifnames=0\"" > /etc/default/grub
+		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
+		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
+		echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 		grub2-install $device
-	fi	
+	fi
+	
+	sed -i '/Port /d' /etc/ssh/sshd_config
+	echo "Port 52890" >> /etc/ssh/sshd_config
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
@@ -88,16 +120,26 @@ INIT_OS(){
     echo "blog.ylx.me" | passwd --stdin root
 
     touch /etc/sysconfig/network
-    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
+	if [ "$isAuto" == '1' ]; then
+	cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=static
     ONBOOT=yes
 	IPADDR=$MAINIP
 	GATEWAY=$GATEWAYIP
 	NETMASK=$NETMASK
-	DNS1=1.1.1.1
-	DNS2=8.8.8.8
+	DNS1=$dns_name1
+	DNS2=$dns_name2
 EOFILE
+	else
+    cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
+    DEVICE=eth0
+    BOOTPROTO=dhcp
+    ONBOOT=yes
+	DNS1=$dns_name1
+	DNS2=$dns_name2
+EOFILE
+	fi
    
     cat >>/etc/security/limits.conf<<EOFILE
 
@@ -107,6 +149,7 @@ EOFILE
     * hard nproc 65535
 EOFILE
     #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 }
 
 function isValidIp() {
@@ -146,6 +189,13 @@ function UpdateIp() {
 }
 
 function SetNetwork() {
+	isCN='0'
+	geoip=$(wget --no-check-certificate -qO- https://api.ip.sb/geoip -T 10 | grep "\"country_code\":\"CN\"")
+	if [[ "$geoip" != "" ]];then
+		isCN='1'
+		echo -e "检测到大陆环境."
+	fi
+	
   isAuto='0'
   if [[ -f '/etc/network/interfaces' ]];then
     [[ ! -z "$(sed -n '/iface.*inet static/p' /etc/network/interfaces)" ]] && isAuto='1'
@@ -173,15 +223,15 @@ function SetNetwork() {
 
 function NetMode() {
 
-  # if [ "$isAuto" == '0' ]; then
-    # read -r -p "Using DHCP to configure network automatically? [Y/n]:" input
-    # case $input in
-      # [yY][eE][sS]|[yY]) NETSTR='' ;;
-      # [nN][oO]|[nN]) isAuto='1' ;;
-      # *) clear; echo "Canceled by user!"; exit 1;;
-    # esac
-  # fi
-  isAuto='1'
+  if [ "$isAuto" == '0' ]; then
+    read -p "设置网络为动态获取IP吗(DHCP) [Y/n] :" input
+	[ -z "${input}" ] && input="y"
+    case $input in
+      [yY][eE][sS]|[yY]) NETSTR='' ;;
+      [nN][oO]|[nN]) isAuto='1' ;;
+      *) clear; echo "Canceled by user!"; exit 1;;
+    esac
+  fi
 
   if [ "$isAuto" == '1' ]; then
     GetIp
@@ -195,7 +245,8 @@ function NetMode() {
       echo "Gateway: $GATEWAYIP"
       echo "Netmask: $NETMASK"
       echo -e "\n"
-      read -r -p "Confirm? [Y/n]:" input
+      read -p "Confirm? [Y/n] :" input
+	  [ -z "${input}" ] && input="y"
       case $input in
         [yY][eE][sS]|[yY]) ;;
         [nN][oO]|[nN])
@@ -225,4 +276,10 @@ INIT_OS
 rm -rf $ROOTDIR
 yum clean all
 sync
-reboot -f
+# reboot -f
+read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :" yn
+[ -z "${yn}" ] && yn="y"
+if [[ $yn == [Yy] ]]; then
+	echo -e "${Info} VPS 重启中..."
+	reboot -f
+fi
