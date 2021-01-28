@@ -72,8 +72,8 @@ INIT_OS(){
 	else
 		dns_name1="1.1.1.1"
 		dns_name2="8.8.8.8"
-		echo $dns_name1 > /etc/resolv.conf
-		echo $dns_name2 >> /etc/resolv.conf
+		echo "nameserver $dns_name1" > /etc/resolv.conf
+		echo "nameserver $dns_name2" >> /etc/resolv.conf
 		# echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 		yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 	fi
