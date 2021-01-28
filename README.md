@@ -5,7 +5,7 @@ backup from https://www.cxthhhhh.com/network-reinstall-system-modify
     wget --no-check-certificate -qO ~/Network-Reinstall-System-Modify.sh 'https://github.com/ylx2016/reinstall/raw/master/Network-Reinstall-System-Modify.sh' && chmod a+x ~/Network-Reinstall-System-Modify.sh && bash ~/Network-Reinstall-System-Modify.sh -UI_Options
 
 
-重装脚本 Pwd@CentOS Or blog.ylx.me port:52890
+重装脚本 passwd:blog.ylx.me     port:52890
 https://www.hostloc.com/thread-717814-1-1.html
 
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
