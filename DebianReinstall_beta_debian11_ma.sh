@@ -164,7 +164,7 @@ EOFILE
 	fi
 	
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
-	wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
+	wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && /bin/mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
 	# exit
 }
 
