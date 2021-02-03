@@ -19,6 +19,7 @@ https://www.hostloc.com/thread-717814-1-1.html
 
     wget -O dnscrypt-proxy.sh https://raw.githubusercontent.com/ylx2016/reinstall/master/dnscrypt-proxy.sh && chmod +x dnscrypt-proxy.sh && ./dnscrypt-proxy.sh
     sed -i '/Port /d' /etc/ssh/sshd_config && echo "Port 52890" >> /etc/ssh/sshd_config && service sshd restart
+    apt-get update && apt-get dist-upgrade -y && apt-get autoremove -y
 
 DD alpine
 
