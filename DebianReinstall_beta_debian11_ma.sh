@@ -2,7 +2,6 @@
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
-#IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
 CN_IMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
@@ -33,20 +32,12 @@ DELALL(){
 	sysefifile=""
 	if [ -f "/boot/efi/EFI/BOOT/grub.cfg" ]; then
 		sysefi="1"
-		#sysefifile="/boot/efi/EFI/centos/grub.cfg"
-		#bootloaderid="Debian"
 	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
 		sysefi="1"
-		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
-		#bootloaderid="Debian"
 	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
 		sysefi="1"
-		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
-		#bootloaderid="Debian"	
 	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
-		sysefi="1"
-		#sysefifile="/boot/efi/EFI/redhat/grub.cfg"
-		#bootloaderid="Debian"		
+		sysefi="1"	
 	else
 		sysbios="1"
 	fi
@@ -84,19 +75,13 @@ INIT_OS(){
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		#apt-get install grub-efi -y
 		apt-get install -y grub-efi grub-efi-amd64
-		#grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		#/usr/sbin/update-grub
-		#grub2-install --target=x86_64-efi --bootloader-id=debian --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		
 		grub-install
 		update-grub
 		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
 		cd /
 		
 	elif [[ ${sysbios} == "1" ]];then
-		#apt-get install -y grub2
 		cd /
 		grub-install $device
 		/usr/sbin/update-grub
@@ -105,19 +90,19 @@ INIT_OS(){
 	
 	sed -i '/Port /d' /etc/ssh/sshd_config
 	echo "Port 52890" >> /etc/ssh/sshd_config
-    sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
-    sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
-    sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
-    sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
-    sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-    systemctl enable ssh
+    	sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
+    	sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
+    	sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
+    	sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
+    	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+    	systemctl enable ssh
 
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 	
 	echo "net.core.default_qdisc=fq_pie" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf		
 
-    sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+    	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 	/usr/sbin/update-grub
 	
@@ -162,8 +147,9 @@ EOFILE
 		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	fi
-	
-    wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
+	hostnamectl set-hostname ylx2016
+	echo "127.0.0.1 ylx2016" >> /etc/hosts
+    	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
 	wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && /bin/mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
 	# exit
 }
