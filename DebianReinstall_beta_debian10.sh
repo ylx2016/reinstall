@@ -97,10 +97,8 @@ INIT_OS(){
     	systemctl enable ssh
 
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
-	
 	echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
-
 	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 	/usr/sbin/update-grub
@@ -136,7 +134,7 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
-    sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+    #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     echo "nameserver 9.9.9.9" >> /etc/resolv.conf
