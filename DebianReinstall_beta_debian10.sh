@@ -140,7 +140,9 @@ EOFILE
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
     echo "nameserver 9.9.9.9" >> /etc/resolv.conf
-    hostnamectl set-hostname ylx2016
+    rm -rf /etc/hostname
+    touch /etc/hostname
+    echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
 }
