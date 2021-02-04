@@ -69,6 +69,7 @@ INIT_OS(){
     export LC_ALL=C.UTF-8
     apt-get update
 	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl unzip socat cron jq binutils inetutils-ping qrencode nginx bash-completion sudo
+	cd /tmp
 	curl -s https://get.acme.sh | sh
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
