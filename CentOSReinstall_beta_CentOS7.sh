@@ -90,6 +90,7 @@ INIT_OS(){
 		
 		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+		touch /etc/default/grub		
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub

@@ -134,6 +134,10 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
+    rm -rf /etc/hostname
+    touch /etc/hostname
+    echo "ylx2016" >> /etc/hostname
+    echo "127.0.0.1 ylx2016" >> /etc/hosts
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
 	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 }

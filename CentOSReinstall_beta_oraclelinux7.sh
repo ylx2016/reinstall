@@ -84,6 +84,7 @@ INIT_OS(){
 		cd /
 		yum install grub2-efi grub2-efi-modules shim -y
 		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		touch /etc/default/grub		
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
@@ -96,6 +97,7 @@ INIT_OS(){
 		#yum install -y grub2
 		cd /
 		grub2-install $device
+		touch /etc/default/grub		
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
@@ -143,6 +145,10 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
+    rm -rf /etc/hostname
+    touch /etc/hostname
+    echo "ylx2016" >> /etc/hostname
+    echo "127.0.0.1 ylx2016" >> /etc/hosts
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && chmod +x /root/tcpx.sh
 }
