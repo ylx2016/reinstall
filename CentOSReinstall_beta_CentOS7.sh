@@ -118,8 +118,8 @@ INIT_OS(){
 		# grub2-install $device
 	fi	
 	
-	sed -i '/Port /d' /etc/ssh/sshd_config
-	echo "Port 52890" >> /etc/ssh/sshd_config
+    sed -i '/Port /d' /etc/ssh/sshd_config
+    echo "Port 52890" >> /etc/ssh/sshd_config
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
@@ -130,26 +130,26 @@ INIT_OS(){
 
     touch /etc/sysconfig/network
 
-	if [ "$isAuto" == '1' ]; then
+    if [ "$isAuto" == '1' ]; then
 	cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=static
     ONBOOT=yes
-	IPADDR=$MAINIP
-	GATEWAY=$GATEWAYIP
-	NETMASK=$NETMASK
-	DNS1=$dns_name1
-	DNS2=$dns_name2
+    IPADDR=$MAINIP
+    GATEWAY=$GATEWAYIP
+    NETMASK=$NETMASK
+    DNS1=$dns_name1
+    DNS2=$dns_name2
 EOFILE
-	else
+    else
     cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=dhcp
     ONBOOT=yes
-	DNS1=$dns_name1
-	DNS2=$dns_name2
+    DNS1=$dns_name1
+    DNS2=$dns_name2
 EOFILE
-	fi
+    fi
 
     cat >>/etc/security/limits.conf<<EOFILE
 
