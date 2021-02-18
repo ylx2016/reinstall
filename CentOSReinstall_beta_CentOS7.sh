@@ -108,6 +108,7 @@ INIT_OS(){
 		cd /
 		grub2-install $device
 		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+		touch /etc/default/grub
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
