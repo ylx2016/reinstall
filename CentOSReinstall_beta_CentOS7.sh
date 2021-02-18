@@ -168,9 +168,9 @@ EOFILE
 		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	fi
 	
-	rm -rf /etc/hostname
+    rm -rf /etc/hostname
     touch /etc/hostname
-   	echo "ylx2016" >> /etc/hostname
+    echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
     sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
     wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /usr/bin/chmod +x /root/tcpx.sh
