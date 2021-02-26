@@ -3,7 +3,7 @@
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
-CN_IMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
+CN_IMGURL='https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 ROOTDIR='/os'
