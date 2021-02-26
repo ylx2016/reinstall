@@ -56,6 +56,7 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
+	touch /etc/resolv.conf
 	if [[ "$isCN" == '1' ]];then
 		echo "nameserver 114.114.114.114" > /etc/resolv.conf
 		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
