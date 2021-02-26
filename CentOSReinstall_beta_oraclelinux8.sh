@@ -3,7 +3,7 @@
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
-IMGURL='https://github.com/oracle/container-images/raw/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
+IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/oraclelinux-8-amd64-rootfs_2020.12.22.tar.xz'
 CN_IMGURL='https://raw.sevencdn.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
