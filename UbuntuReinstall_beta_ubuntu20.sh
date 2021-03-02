@@ -100,7 +100,7 @@ INIT_OS(){
 
 	echo -e "blog.ylx.me\nblog.ylx.me" |passwd "root"
 	
-	echo "net.core.default_qdisc=fq_pie" >> /etc/sysctl.d/99-sysctl.conf
+	echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf		
 
     	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
