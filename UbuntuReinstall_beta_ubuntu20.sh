@@ -80,7 +80,7 @@ INIT_OS(){
 		apt-get install -y grub-efi grub-efi-amd64
 		grub-install
 		update-grub
-		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
+		cd /boot/efi/EFI && mkdir boot && cp ubuntu/grubx64.efi boot/bootx64.efi
 		cd /
 	elif [[ ${sysbios} == "1" ]];then
 		cd /
