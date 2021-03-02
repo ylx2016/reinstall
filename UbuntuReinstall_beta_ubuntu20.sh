@@ -2,10 +2,6 @@
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
-
-#rm -rf /tmp/url.tmp
-#curl -o /tmp/url.tmp 'https://us.images.linuxcontainers.org/images/debian/bullseye/amd64/cloud/?C=M;O=D'
-#urldata=$(grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
 #IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
