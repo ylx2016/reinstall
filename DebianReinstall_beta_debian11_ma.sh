@@ -158,8 +158,8 @@ EOFILE
     	touch /etc/hostname
    	echo "ylx2016" >> /etc/hostname
     	echo "127.0.0.1 ylx2016" >> /etc/hosts
-    	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
-	wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && /bin/mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
+    	/usr/bin/wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
+	/usr/bin/wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && /bin/mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
 	systemctl disable exim4
 	# exit
 }
