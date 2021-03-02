@@ -61,6 +61,8 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
+	rm -rf /etc/resolv.conf
+	touch /etc/resolv.conf
     if [[ "$isCN" == '1' ]];then
 		dns_name1="114.114.114.114"
 		dns_name2="223.5.5.5"
