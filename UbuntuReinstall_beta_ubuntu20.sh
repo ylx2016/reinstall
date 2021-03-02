@@ -25,6 +25,7 @@ DOWNLOAD_IMG(){
 			wget -O "$ROOTDIR/busybox" $BUSYBOX
 		fi
         chmod +x "$ROOTDIR/busybox"
+	exit
     else
         echo "ERROR: wget not found !"
         exit
