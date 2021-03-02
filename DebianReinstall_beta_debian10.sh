@@ -148,7 +148,7 @@ EOFILE
     touch /etc/hostname
     echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
-    wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
+    /usr/bin/wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
 }
 
 function isValidIp() {
