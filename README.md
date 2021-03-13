@@ -24,6 +24,7 @@ https://www.hostloc.com/thread-717814-1-1.html
     sed -i '/Port /d' /etc/ssh/sshd_config && echo "Port 52890" >> /etc/ssh/sshd_config && service sshd restart
     apt-get update && apt-get dist-upgrade -y && apt-get autoremove -y && systemctl disable exim4 && systemctl stop exim4
     rm -rf /etc/hostname && touch /etc/hostname && echo "ylx2016" >> /etc/hostname && echo "127.0.0.1 ylx2016" >> /etc/hosts
+    bash <(curl -sSL "https://www.zeroteam.top/files/mediatest.sh")
 
 DD alpine
 
