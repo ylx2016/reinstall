@@ -25,6 +25,7 @@ https://www.hostloc.com/thread-717814-1-1.html
     apt-get update && apt-get dist-upgrade -y && apt-get autoremove -y && systemctl disable exim4 && systemctl stop exim4
     rm -rf /etc/hostname && touch /etc/hostname && echo "ylx2016" >> /etc/hostname && echo "127.0.0.1 ylx2016" >> /etc/hosts
     bash <(curl -sSL "https://www.zeroteam.top/files/mediatest.sh")
+    apt install xz-utils tar  wget curl -y && wget https://github.com/ylx2016/reinstall/raw/master/besttrace4linux.tar.xz && tar -Jxvf besttrace4linux.tar.xz &&  chmod +x besttrace && ./besttrace -q1 -g cn ip
 
 DD alpine
 
