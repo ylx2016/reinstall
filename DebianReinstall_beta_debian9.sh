@@ -42,7 +42,7 @@ DOWNLOAD_IMG(){
 			fi
 			BUSYBOXstate=$(curl -s --head $BUSYBOX | head -n 1)
 			if [[ ${BUSYBOXstate} == *200* ]]; then
-				echo "镜像地址检查OK，继续！"
+				echo "BUSYBOX地址检查OK，继续！"
 			else
 				echo "BUSYBOX地址检查出错，退出！"
 				exit 1
