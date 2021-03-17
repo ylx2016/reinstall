@@ -281,5 +281,5 @@ read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :"
 [ -z "${yn}" ] && yn="y"
 if [[ $yn == [Yy] ]]; then
 	echo -e "${Info} VPS 重启中..."
-	reboot -f
+	/sbin/reboot -f
 fi
