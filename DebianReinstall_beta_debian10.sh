@@ -55,7 +55,6 @@ DOWNLOAD_IMG(){
         echo "ERROR: wget not found !"
         exit
     fi
-	exit 1
 }
 
 DELALL(){
