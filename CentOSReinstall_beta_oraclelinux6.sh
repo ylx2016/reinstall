@@ -13,16 +13,16 @@ DOWNLOAD_IMG(){
     if command -v wget >/dev/null 2>&1 ;then
         mkdir $ROOTDIR
 		if [[ "$isCN" == '1' ]];then
-			CN_IMGURLstate=$(curl -s --head $CN_IMGURL | head -n 1 | grep "HTTP/2")
+			CN_IMGURLstate=$(curl -s --head $CN_IMGURL | head -n 1)
 			if [[ ${CN_IMGURLstate} == *200* ]]; then
 				echo "CN 镜像地址检查OK，继续！"
 			else
 				echo "CN 镜像地址检查出错，退出！"
 				exit 1
 			fi
-			BUSYBOXstate=$(curl -s --head $CN_BUSYBOX | head -n 1 | grep "HTTP/2")
+			BUSYBOXstate=$(curl -s --head $CN_BUSYBOX | head -n 1)
 			if [[ ${BUSYBOXstate} == *200* ]]; then
-				echo "CN BUSYBOX地址检查OK，继续！"
+				echo "CN BUSYBOX镜像地址检查OK，继续！"
 			else
 				echo "CN BUSYBOX地址检查出错，退出！"
 				exit 1
@@ -30,14 +30,14 @@ DOWNLOAD_IMG(){
 			wget -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
 			wget -O "$ROOTDIR/busybox" $CN_BUSYBOX
 		else
-			IMGURLstate=$(curl -s --head $IMGURL | head -n 1 | grep "HTTP/2")
+			IMGURLstate=$(curl -s --head $IMGURL | head -n 1)
 			if [[ ${IMGURLstate} == *200* ]]; then
 				echo "镜像地址检查OK，继续！"
 			else
 				echo "镜像地址检查出错，退出！"
 				exit 1
 			fi
-			BUSYBOXstate=$(curl -s --head $BUSYBOX | head -n 1 | grep "HTTP/2")
+			BUSYBOXstate=$(curl -s --head $BUSYBOX | head -n 1)
 			if [[ ${BUSYBOXstate} == *200* ]]; then
 				echo "BUSYBOX地址检查OK，继续！"
 			else
