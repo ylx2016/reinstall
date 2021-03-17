@@ -15,14 +15,14 @@ DOWNLOAD_IMG(){
 		if [[ "$isCN" == '1' ]];then
 			CN_IMGURLstate=$(curl -s --head $CN_IMGURL | head -n 1 | grep "HTTP/2")
 			if [[ ${CN_IMGURLstate} == *200* ]]; then
-				echo "镜像地址检查OK，继续！"
+				echo "CN 镜像地址检查OK，继续！"
 			else
-				echo "镜像地址检查出错，退出！"
+				echo "CN 镜像地址检查出错，退出！"
 				exit 1
 			fi
 			BUSYBOXstate=$(curl -s --head $CN_BUSYBOX | head -n 1 | grep "HTTP/2")
 			if [[ ${BUSYBOXstate} == *200* ]]; then
-				echo "CN 镜像地址检查OK，继续！"
+				echo "CN BUSYBOX镜像地址检查OK，继续！"
 			else
 				echo "CN BUSYBOX地址检查出错，退出！"
 				exit 1
@@ -39,7 +39,7 @@ DOWNLOAD_IMG(){
 			fi
 			BUSYBOXstate=$(curl -s --head $BUSYBOX | head -n 1 | grep "HTTP/2")
 			if [[ ${BUSYBOXstate} == *200* ]]; then
-				echo "镜像地址检查OK，继续！"
+				echo "BUSYBOX地址检查OK，继续！"
 			else
 				echo "BUSYBOX地址检查出错，退出！"
 				exit 1
