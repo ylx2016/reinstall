@@ -73,8 +73,8 @@ INIT_OS(){
 	fi
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
-    apt-get update
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo
+    apt-get update && apt install apt-utils -y
+	DEBIAN_FRONTEND=noninteractive apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet coreutils curl sudo -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
