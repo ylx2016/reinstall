@@ -8,7 +8,17 @@ go to https://github.com/ylx2016/Linux-NetSpeed
 
 
 重装脚本 passwd:blog.ylx.me     port:52890
-https://www.hostloc.com/thread-717814-1-1.html
+原始作者https://www.hostloc.com/thread-717814-1-1.html
+
+兼容性规则:
+
+同版本重装>不同版本重装
+
+bios重装>efi重装（不可从efi Centos重装到Debian）
+
+同系重装>跨系重装（如:从centos重装到debian，一旦docker重装一次后，跨系重装兼容性将加强）
+
+一般衍生系没有兼容问题，centos和oracle同系 Ubuntu和Debian同系
 
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
     wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux7.sh && bash            CentOSReinstall_beta_oraclelinux7.sh
