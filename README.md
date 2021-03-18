@@ -14,7 +14,7 @@ go to https://github.com/ylx2016/Linux-NetSpeed
 
 同版本重装>不同版本重装
 
-bios重装>efi重装（不可从efi Centos重装到Debian）
+bios重装>efi重装（不可从efi跨系重装 Centos重装到Debian）
 
 同系重装>跨系重装（如:从centos重装到debian，一旦docker重装一次后，跨系重装兼容性将加强）
 
