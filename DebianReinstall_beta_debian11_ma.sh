@@ -7,7 +7,7 @@ export PATH
 urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 IMGURL=https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
 #IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
-CN_IMGURL='https://raw.sevencdn.com/debuerreotype/docker-debian-artifacts/dist-amd64/bullseye/rootfs.tar.xz'
+CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
 BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 ROOTDIR='/os'
