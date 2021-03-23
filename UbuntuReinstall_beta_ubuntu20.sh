@@ -25,7 +25,7 @@ DOWNLOAD_IMG(){
 				exit 1
 			fi
 			BUSYBOXstate=$(curl -s --head $CN_BUSYBOX | head -n 1)
-			if [[ ${BUSYBOXstate} == *200* ]]; then
+			if [[ ${IMGURLstate} == *200* || ${IMGURLstate} == *308*]]; then
 				echo "CN BUSYBOX镜像地址检查OK，继续！"
 			else
 				echo "CN BUSYBOX地址检查出错，退出！"
