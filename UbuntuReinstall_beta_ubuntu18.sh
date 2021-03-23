@@ -94,7 +94,7 @@ INIT_OS(){
 	if [[ "$isCN" == '1' ]];then
 		echo "nameserver 114.114.114.114" > /etc/resolv.conf
 		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
-		sed -i 's#http://deb.debian.org#http://mirrors.163.com#g' /etc/apt/sources.list
+		sed -i 's#http://archive.ubuntu.com#http://mirrors.163.com#g' /etc/apt/sources.list
 	else
 		echo "nameserver 1.1.1.1" > /etc/resolv.conf
 		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
