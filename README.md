@@ -30,6 +30,7 @@ bios重装>efi重装（不可从efi跨系重装 Centos重装到Debian）
     wget -N -O DebianReinstall_beta_debian11_ma.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11_ma.sh && bash DebianReinstall_beta_debian11_ma.sh
     wget -N -O UbuntuReinstall_beta_ubuntu18.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu18.sh && bash UbuntuReinstall_beta_ubuntu18.sh
     wget -N -O UbuntuReinstall_beta_ubuntu20.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu20.sh && bash UbuntuReinstall_beta_ubuntu20.sh
+    wget -N -O UbuntuReinstall_beta_ubuntu21.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu21.sh && bash UbuntuReinstall_beta_ubuntu21.sh
 常用杂烩
 
     wget -O dnscrypt-proxy.sh https://reinstall.pages.dev/dnscrypt-proxy.sh && chmod +x dnscrypt-proxy.sh && ./dnscrypt-proxy.sh
@@ -41,17 +42,3 @@ bios重装>efi重装（不可从efi跨系重装 Centos重装到Debian）
     apt install xz-utils tar  wget curl -y && wget https://reinstall.pages.dev/besttrace4linux.tar.xz && tar -Jxvf besttrace4linux.tar.xz &&  chmod +x besttrace && ./besttrace -q1 -g cn ip
     wget -O wgcf.sh https://ylx.pages.dev/wgcf.sh && chmod +x wgcf.sh && ./wgcf.sh
     wget -O wgcfgo.sh https://ylx.pages.dev/wgcfgo.sh && chmod +x wgcfgo.sh && ./wgcfgo.sh
-
-DD alpine
-
-cloudcone
-
-    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/cloudcone2alpine.sh && chmod +x cloudcone2alpine.sh && ./cloudcone2alpine.sh
-
-谷歌云GCP
-
-    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/alpine.sh && chmod +x alpine.sh && sed -i "s|^mask|mask=255.255.255.0\n#mask|" alpine.sh && ./alpine.sh
-
-其他KVM
-
-    wget --no-check-certificate https://github.com/ylx2016/reinstall/raw/master/alpine.sh && chmod +x alpine.sh && ./alpine.sh
