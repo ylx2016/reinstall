@@ -19,6 +19,7 @@ bios重装>efi重装（不可从efi跨系重装 Centos重装到Debian）
 同系重装>跨系重装（如:从centos重装到debian，一旦docker重装一次后，跨系重装兼容性将加强）
 
 一般衍生系没有兼容问题，centos和oracle同系 Ubuntu和Debian同系
+举例centos装debian,先用此法装一遍centos重启后再用此法装debian,大大避免跨系失败
 
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://reinstall.pages.dev/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
     wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://reinstall.pages.dev/CentOSReinstall_beta_oraclelinux7.sh && bash            CentOSReinstall_beta_oraclelinux7.sh
