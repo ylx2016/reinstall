@@ -158,6 +158,7 @@ iface lo inet loopback
 
 auto $network_adapter_name
 iface $network_adapter_name inet dhcp
+iface $network_adapter_name inet6 dhcp
 EOFILE
 	fi
 
