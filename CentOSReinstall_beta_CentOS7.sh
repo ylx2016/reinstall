@@ -179,6 +179,8 @@ EOFILE
     DEVICE=eth0
     BOOTPROTO=dhcp
     ONBOOT=yes
+    NETWORKING_IPV6=yes
+    IPV6_AUTOCONF=yes
     DNS1=$dns_name1
     DNS2=$dns_name2
 EOFILE
@@ -200,7 +202,8 @@ EOFILE
 		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	fi
-	
+    echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
+    echo "NETWORKING_IPV6=yes" >> /etc/sysconfig/network
     rm -rf /etc/hostname
     touch /etc/hostname
     echo "ylx2016" >> /etc/hostname
