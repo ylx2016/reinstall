@@ -182,6 +182,7 @@ EOFILE
 		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 	fi
+	echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 	rm -rf /etc/hostname
     	touch /etc/hostname
    	echo "ylx2016" >> /etc/hostname
