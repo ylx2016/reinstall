@@ -2,6 +2,20 @@
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
+if ! type curl >/dev/null 2>&1; then
+    echo 'curl 未安装 安装中'
+	apt-get update && apt-get install curl -y || yum install curl -y
+else
+    echo 'curl 已安装，继续'
+fi
+
+if ! type wget >/dev/null 2>&1; then
+    echo 'wget 未安装 安装中';
+	apt-get update && apt-get install wget -y || yum install curl -y
+else
+    echo 'wget 已安装，继续'
+fi
+
 urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/centos/7/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 IMGURL=https://cf-image.ylx.workers.dev/images/centos/7/amd64/cloud/${urldata}/rootfs.tar.xz
 #IMGURL='https://github.com/CentOS/sig-cloud-instance-images/raw/CentOS-7.8.2003-x86_64/docker/centos-7.8.2003-x86_64-docker.tar.xz'
