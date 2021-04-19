@@ -153,7 +153,6 @@ iface $network_adapter_name inet static
 address $MAINIP
 netmask $NETMASK
 gateway $GATEWAYIP
-iface $network_adapter_name inet6 dhcp
 EOFILE
 	else
 cat >/etc/network/interfaces <<EOFILE
