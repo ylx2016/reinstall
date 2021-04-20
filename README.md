@@ -21,9 +21,6 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
 一般衍生系没有兼容问题，centos和oracle同系 Ubuntu和Debian同系
 
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://reinstall.pages.dev/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
-    wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://reinstall.pages.dev/CentOSReinstall_beta_oraclelinux7.sh && bash            CentOSReinstall_beta_oraclelinux7.sh
-    wget -N -O CentOSReinstall_beta_oraclelinux8.sh https://reinstall.pages.dev/CentOSReinstall_beta_oraclelinux8.sh && bash CentOSReinstall_beta_oraclelinux8.sh
-    wget -N -O CentOSReinstall_beta_oraclelinux6.sh https://reinstall.pages.dev/CentOSReinstall_beta_oraclelinux6.sh && bash CentOSReinstall_beta_oraclelinux6.sh
     wget -N -O DebianReinstall_beta_debian9.sh https://reinstall.pages.dev/master/DebianReinstall_beta_debian9.sh && bash DebianReinstall_beta_debian9.sh
     wget -N -O DebianReinstall_beta_debian10.sh https://reinstall.pages.dev/DebianReinstall_beta_debian10.sh && bash DebianReinstall_beta_debian10.sh
     wget -N -O DebianReinstall_beta_debian11.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11.sh && bash DebianReinstall_beta_debian11.sh
