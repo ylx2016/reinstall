@@ -129,16 +129,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache
     yum install glibc-langpack-en -y
-	github_centos_ver=$(curl -s 'https://github.com/ylx2016/kernel/releases' | grep 'Centos_Kernel' | grep '_latest_C8_bbr_' | head -n 1 | awk -F '"' '{print $2}' | awk -F '_' '{print $3}')
-	github_centos_tag=$(curl -s 'https://github.com/ylx2016/kernel/releases' | grep 'Centos_Kernel' | grep '_latest_C8_bbr_' | head -n 1 | awk -F '/' '{print $5}' | awk -F '"' '{print $1}')
-	headurl=https://github.com/ylx2016/kernel/releases/download/$github_centos_tag/kernel-headers-${github_centos_ver}-1.x86_64.rpm
-	imgurl=https://github.com/ylx2016/kernel/releases/download/$github_centos_tag/kernel-${github_centos_ver}-1.x86_64.rpm
-	wget -N -O kernel-headers-c8.rpm $headurl
-	wget -N -O kernel-c8.rpm $imgurl
-	yum install -y kernel-c8.rpm
-	yum install -y kernel-headers-c8.rpm
-	sync
-    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop util-linux coreutils net-tools grubby
+    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop util-linux coreutils net-tools grubby https://github.com/ylx2016/kernel/releases/download/Centos_Kernel_5.11.15-xanmod1-cacule_C8_latest_2021.04.20-1833/kernel-5.11.15_xanmod1_cacule-1.x86_64.rpm https://github.com/ylx2016/kernel/releases/download/Centos_Kernel_5.11.15-xanmod1-cacule_C8_latest_2021.04.20-1833/kernel-devel-5.11.15_xanmod1_cacule-1.x86_64.rpm https://github.com/ylx2016/kernel/releases/download/Centos_Kernel_5.11.15-xanmod1-cacule_C8_latest_2021.04.20-1833/kernel-headers-5.11.15_xanmod1_cacule-1.x86_64.rpm
    
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
