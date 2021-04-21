@@ -324,6 +324,7 @@ NetMode
 DOWNLOAD_IMG
 DELALL
 EXTRACT_IMG
+sleep 5s
 INIT_OS
 
 rm -rf $ROOTDIR
@@ -335,5 +336,6 @@ read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :"
 [ -z "${yn}" ] && yn="y"
 if [[ $yn == [Yy] ]]; then
 	echo -e "${Info} VPS 重启中..."
+	sleep 10s
 	reboot -f
 fi
