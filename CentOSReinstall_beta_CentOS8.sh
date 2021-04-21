@@ -129,7 +129,7 @@ INIT_OS(){
     export LC_ALL=en_US.UTF-8
     yum makecache
     yum install glibc-langpack-en -y
-	yum install wget curl -y
+	yum install wget curl epel-release -y
 	github_centos_ver=$(curl -s 'https://github.com/ylx2016/kernel/releases' | grep 'Centos_Kernel' | grep '_latest_C8_bbr_' | head -n 1 | awk -F '"' '{print $2}' | awk -F '_' '{print $3}')
 	github_centos_tag=$(curl -s 'https://github.com/ylx2016/kernel/releases' | grep 'Centos_Kernel' | grep '_latest_C8_bbr_' | head -n 1 | awk -F '/' '{print $5}' | awk -F '"' '{print $1}')
 	headurl=https://github.com/ylx2016/kernel/releases/download/$github_centos_tag/kernel-headers-${github_centos_ver}-1.x86_64.rpm
