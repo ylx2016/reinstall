@@ -189,7 +189,7 @@ EOFILE
 EOFILE
 
 mkdir -p /etc/systemd/system/networking.service.d/
-echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.service.d/timeout.conf
+echo -e "[Service]\nTimeoutStartSec=15sec" > /etc/systemd/system/networking.service.d/timeout.conf
 
     # sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
    if [[ "$isCN" == '1' ]];then
