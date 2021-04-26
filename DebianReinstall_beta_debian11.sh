@@ -186,6 +186,10 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
+
+mkdir -p /etc/systemd/system/networking.service.d/
+echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.service.d/timeout.conf
+
     # sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
    if [[ "$isCN" == '1' ]];then
 		echo "nameserver 114.114.114.114" > /etc/resolv.conf
