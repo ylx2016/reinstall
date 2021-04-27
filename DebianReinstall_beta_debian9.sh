@@ -169,6 +169,10 @@ EOFILE
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
+
+mkdir -p /etc/systemd/system/networking.service.d/
+echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.service.d/timeout.conf
+
     #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
     echo "nameserver 1.1.1.1" >> /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf
