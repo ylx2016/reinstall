@@ -81,7 +81,7 @@ case $Num in
   8) bash Network-Reinstall-System-Modify.sh -Windows_Server_2019;;
   9) bash Network-Reinstall-System-Modify.sh -Windows_Server_2016 ;;
   10) bash Network-Reinstall-System-Modify.sh -Windows_Server_2012R2 ;;
-  11) bash Network-Reinstall-System-Modify.sh -CentOS_77 ;;
+  11) bash Network-Reinstall-System-Modify.sh -CentOS_79 ;;
   12) bash Network-Reinstall-System-Modify.sh -CentOS_76 ;;
   13) wget -N -O CentOSReinstall_beta.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta.sh && bash CentOSReinstall_beta.sh ;;
   14) wget -N -O CentOSReinstall_beta_oraclelinux7.sh https://github.com/ylx2016/reinstall/raw/master/CentOSReinstall_beta_oraclelinux7.sh && bash CentOSReinstall_beta_oraclelinux7.sh ;;
