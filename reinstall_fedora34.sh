@@ -115,13 +115,15 @@ INIT_OS(){
 		dns_name2="8.8.8.8"
 		echo "nameserver $dns_name1" > /etc/resolv.conf
 		echo "nameserver $dns_name2" >> /etc/resolv.conf
-		# echo "nameserver 9.9.9.9" >> /etc/resolv.conf
 		
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
     yum makecache
-    yum install glibc-langpack-en -y
-    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop util-linux coreutils net-tools grubby
+    yum install glibc-langpack-en wget curl -y
+	export LC_ALL=en_US.UTF-8
+	cd /etc/yum.repos.d/ && wget https://copr.fedorainfracloud.org/coprs/rmnscnce/kernel-xanmod/repo/fedora-34/rmnscnce-kernel-xanmod-fedora-34.repo
+	yum update -y
+    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd nano NetworkManager htop util-linux coreutils net-tools grubby kernel-xanmod-cacule
    
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
@@ -335,7 +337,6 @@ INIT_OS
 rm -rf $ROOTDIR
 yum clean all
 sync
-# reboot -f
 read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :" yn
 [ -z "${yn}" ] && yn="y"
 if [[ $yn == [Yy] ]]; then
