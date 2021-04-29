@@ -128,88 +128,75 @@ INIT_OS(){
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		yum install grub2-efi grub2-efi-modules shim -y
-		
-		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
-		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+		yum install grub2-efi grub2-efi-modules shim grub2-efi-x64 grub2-efi-x64-modules -y
+		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 		touch /etc/default/grub		
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
-		grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
-		grub2-install --target=x86_64-efi --bootloader-id=centos --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
+		grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
+		grub2-install --target=x86_64-efi --bootloader-id=redhat --efi-directory=/boot/efi --verbose $device --boot-directory=/boot/efi
 	elif [[ ${sysbios} == "1" ]];then
+		#yum install -y grub2
 		cd /
 		grub2-install $device
-		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
 		touch /etc/default/grub
 		sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 		sed -i '/GRUB_TIMEOUT=/d' /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"GRUB_TIMEOUT=5\"" >> /etc/default/grub
 		echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null
+		grub2-install $device
 	fi	
 	
     sed -i '/Port /d' /etc/ssh/sshd_config
-    echo "Port 52890" >> /etc/ssh/sshd_config
+	echo "Port 52890" >> /etc/ssh/sshd_config
     sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
     sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
     sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
     sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+    echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-sysctl.conf
+	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
     systemctl enable sshd
+    systemctl enable NetworkManager
     echo "blog.ylx.me" | passwd --stdin root
 
     touch /etc/sysconfig/network
-
-    if [ "$isAuto" == '1' ]; then
+	if [ "$isAuto" == '1' ]; then
 	cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=static
     ONBOOT=yes
-    IPADDR=$MAINIP
-    GATEWAY=$GATEWAYIP
-    NETMASK=$NETMASK
-    DNS1=$dns_name1
-    DNS2=$dns_name2
+	IPADDR=$MAINIP
+	GATEWAY=$GATEWAYIP
+	NETMASK=$NETMASK
+	DNS1=$dns_name1
+	DNS2=$dns_name2
 EOFILE
-    else
+	else
     cat >/etc/sysconfig/network-scripts/ifcfg-eth0 <<EOFILE
     DEVICE=eth0
     BOOTPROTO=dhcp
     ONBOOT=yes
-    NETWORKING_IPV6=yes
-    IPV6_AUTOCONF=yes
-    DNS1=$dns_name1
-    DNS2=$dns_name2
+	DNS1=$dns_name1
+	DNS2=$dns_name2
 EOFILE
-    fi
-
+	fi
+   
     cat >>/etc/security/limits.conf<<EOFILE
-
     * soft nofile 65535
     * hard nofile 65535
     * soft nproc 65535
     * hard nproc 65535
 EOFILE
-
-	if [[ "$isCN" == '1' ]];then
-		echo "nameserver 114.114.114.114" > /etc/resolv.conf
-		echo "nameserver 223.5.5.5" >> /etc/resolv.conf
-	else
-		echo "nameserver 1.1.1.1" > /etc/resolv.conf
-		echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-		echo "nameserver 9.9.9.9" >> /etc/resolv.conf
-	fi
-    echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
-    echo "NETWORKING_IPV6=yes" >> /etc/sysconfig/network
     rm -rf /etc/hostname
     touch /etc/hostname
     echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
-    sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
-    /usr/bin/wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /usr/bin/chmod +x /root/tcpx.sh
+    #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
+	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /usr/bin/chmod +x /root/tcpx.sh
 }
 
 function isValidIp() {
