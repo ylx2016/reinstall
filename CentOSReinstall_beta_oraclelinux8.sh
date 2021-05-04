@@ -4,9 +4,12 @@
 
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/CentOS-7.9.2009-x86_64-docker/CentOS-7.9.2009-x86_64-docker.tar.xz'
 #IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/oraclelinux-8-amd64-rootfs_2020.12.22.tar.xz'
-IMGURL='https://raw.githubusercontent.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
-CN_IMGURL='https://raw.sevencdn.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
-BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+#IMGURL='https://raw.githubusercontent.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
+#CN_IMGURL='https://raw.sevencdn.com/oracle/container-images/dist-amd64/8/oraclelinux-8-amd64-rootfs.tar.xz'
+urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/oracle/8/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+IMGURL=https://cf-image.ylx.workers.dev/images/oracle/8/amd64/cloud/${urldata}/rootfs.tar.xz
+CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/oracle/8/amd64/cloud/${urldata}/rootfs.tar.xz
+BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
 CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 ROOTDIR='/os'
 
