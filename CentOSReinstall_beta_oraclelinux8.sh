@@ -97,6 +97,7 @@ INIT_OS(){
 		mv /etc/yum.repos.d/CentOS-Base.repo{,.bak}
 		curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.163.com/.help/CentOS8-Base-163.repo
 		curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/Centos-8.repo
+		yum makecache
 		yum install -y https://mirrors.aliyun.com/epel/epel-release-latest-8.noarch.rpm
 	else
 		dns_name1="1.1.1.1"
@@ -104,14 +105,15 @@ INIT_OS(){
 		echo "nameserver $dns_name1" > /etc/resolv.conf
 		echo "nameserver $dns_name2" >> /etc/resolv.conf
 		# echo "nameserver 9.9.9.9" >> /etc/resolv.conf
+		yum makecache
 		yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+		yum install htop -y
 	fi
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=en_US.UTF-8
-    yum makecache
     yum install glibc-langpack-en -y
     #yum install -y grub2 cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano network-scripts htop
-    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager htop util-linux coreutils net-tools grubby
+    yum install -y grub2* cracklib-dicts dhcp-client openssh-server passwd wget kernel kernel-core nano NetworkManager util-linux coreutils net-tools grubby
      
     device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
