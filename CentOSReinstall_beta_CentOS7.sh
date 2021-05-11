@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
 
-# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 if ! type curl >/dev/null 2>&1; then
     echo 'curl 未安装 安装中'
@@ -15,6 +16,8 @@ if ! type wget >/dev/null 2>&1; then
 else
     echo 'wget 已安装，继续'
 fi
+
+# Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/centos/7/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 IMGURL=https://cf-image.ylx.workers.dev/images/centos/7/amd64/cloud/${urldata}/rootfs.tar.xz
