@@ -18,14 +18,29 @@ else
     echo 'wget 已安装，继续'
 fi
 
-urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
-IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
-#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
-#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
-CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
-#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
-BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
-CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+bit=`uname -m`
+if [[ ${bit} == "x86_64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
+	#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
+	CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+elif [[ ${bit} == "aarch64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/focal/arm64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/focal/arm64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/arm64/cloud/20210225_11:39/rootfs.tar.xz'
+	#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/arm64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
+	CN_BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
+else
+	echo "此系统骨骼太清奇，不支持！"
+	exit
+fi
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
@@ -124,7 +139,13 @@ INIT_OS(){
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		apt-get install -y grub-efi grub-efi-amd64
+		if [[ ${bit} == "x86_64" ]]; then
+			apt-get install -y grub-efi grub-efi-amd64
+		elif [[ ${bit} == "aarch64" ]]; then
+			#apt-get install -y efibootmgr grub-common grub2-common os-prober pv-grub-menu grub-uboot
+			#apt-get -y install grub2-common efivar grub-efi-arm64 os-prober pv-grub-menu grub-uboot efibootmgr
+			apt-get -y install grub2-common efivar grub-efi-arm64 efibootmgr
+		fi
 		grub-install
 		update-grub
 		cd /boot/efi/EFI && mkdir boot && cp ubuntu/grubx64.efi boot/bootx64.efi
