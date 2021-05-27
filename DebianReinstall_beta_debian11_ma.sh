@@ -18,13 +18,28 @@ else
     echo 'wget 已安装，继续'
 fi
 
-urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
-IMGURL=https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
-#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
-CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
-#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
-BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
-CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+bit=`uname -m`
+if [[ ${bit} == "x86_64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/bullseye/amd64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
+	CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+elif [[ ${bit} == "aarch64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/debian/bullseye/arm64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/debian/bullseye/arm64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bullseye/rootfs.tar.xz'
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/bullseye/arm64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
+	CN_BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
+else
+	echo "此系统骨骼太清奇，不支持！"
+	exit
+fi
+
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
@@ -81,6 +96,8 @@ DELALL(){
 		sysefi="1"
 	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
 		sysefi="1"
+	elif [ -f "/boot/efi/EFI/grub/grub.cfg" ]; then
+		sysefi="1"	
 	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
 		sysefi="1"
 	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
@@ -117,7 +134,13 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
-	apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl unzip socat cron jq binutils inetutils-ping qrencode nginx bash-completion sudo
+	bit=$(uname -m)
+	cd /
+	if [[ ${bit} == "x86_64" ]]; then
+		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl unzip socat cron jq binutils inetutils-ping qrencode nginx bash-completion sudo
+	elif [[ ${bit} == "aarch64" ]]; then
+		apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl unzip socat cron jq binutils inetutils-ping qrencode nginx bash-completion sudo
+	fi
 	cd /tmp
 	curl -s https://get.acme.sh | sh
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
@@ -125,7 +148,17 @@ INIT_OS(){
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		apt-get install -y grub-efi grub-efi-amd64
+		bit=$(uname -m)
+		echo ${bit}
+		if [[ ${bit} == "x86_64" ]]; then
+			apt-get install -y grub-efi grub-efi-amd64
+			echo "x86_64 install grub"
+		elif [[ ${bit} == "aarch64" ]]; then
+			#apt-get install -y efibootmgr grub-common grub2-common os-prober pv-grub-menu grub-uboot
+			#apt-get -y install grub2-common efivar grub-efi-arm64 os-prober pv-grub-menu grub-uboot efibootmgr
+			apt-get -y install grub2-common efivar grub-efi-arm64 efibootmgr
+			echo "aarch64 install grub"
+		fi
 		grub-install
 		update-grub
 		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
