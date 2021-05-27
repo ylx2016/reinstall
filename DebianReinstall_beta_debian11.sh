@@ -2,6 +2,10 @@
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
+if ! type /usr/bin/bash >/dev/null 2>&1; then
+	ln /bin/bash /usr/bin/bash
+fi	
+
 if ! type curl >/dev/null 2>&1; then
     echo 'curl 未安装 安装中'
 	apt-get update && apt-get install curl -y || yum install curl -y
