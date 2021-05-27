@@ -2,8 +2,8 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
-if [ -f "/usr/bin/bash" ]; then
-	ln ${which bash} /usr/bin/bash
+if [ ! -f "/usr/bin/bash" ]; then
+	ln $(which bash) /usr/bin/bash
 fi
 
 if ! type curl >/dev/null 2>&1; then
@@ -232,7 +232,7 @@ echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.servi
     touch /etc/hostname
     echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
-    /usr/bin/wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
+    $(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
 }
 
 function isValidIp() {
