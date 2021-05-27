@@ -27,19 +27,23 @@ if [[ ${bit} == "x86_64" ]]; then
 	IMGURL=https://cf-image.ylx.workers.dev/images/debian/buster/amd64/cloud/${urldata}/rootfs.tar.xz
 	#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/buster/rootfs.tar.xz'
 	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/buster/amd64/cloud/${urldata}/rootfs.tar.xz
+	BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
 elif [[ ${bit} == "aarch64" ]]; then
 	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/debian/buster/armhf/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
 	IMGURL=https://cf-image.ylx.workers.dev/images/debian/buster/armhf/cloud/${urldata}/rootfs.tar.xz
 	#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/buster/rootfs.tar.xz'
 	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/buster/armhf/cloud/${urldata}/rootfs.tar.xz
+	BUSYBOX='https://github.com/iweizime/static-binaries/raw/master/arm64/linux/busybox'
+	CN_BUSYBOX='https://github.com/iweizime/static-binaries/raw/master/arm64/linux/busybox'
 else
 	echo "此系统骨骼太清奇，不支持！"
 	exit
 fi
 
-BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+
 #BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
-CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
