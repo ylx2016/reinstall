@@ -135,7 +135,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
-	bit=`uname -m`
+	bit=$(uname -m)
 	cd /
 	DEBIAN_FRONTEND=noninteractive apt-get install -y systemd openssh-server passwd wget nano linux-image-generic linux-headers-generic htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
@@ -143,6 +143,7 @@ INIT_OS(){
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
+		bit=$(uname -m)
 		if [[ ${bit} == "x86_64" ]]; then
 			apt-get install -y grub-efi grub-efi-amd64
 		elif [[ ${bit} == "aarch64" ]]; then
@@ -152,7 +153,9 @@ INIT_OS(){
 		fi
 		grub-install
 		update-grub
-		cd /boot/efi/EFI && mkdir boot && cp ubuntu/grubx64.efi boot/bootx64.efi
+		if [[ ${bit} == "x86_64" ]]; then
+			cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
+		fi
 		cd /
 	elif [[ ${sysbios} == "1" ]];then
 		cd /
