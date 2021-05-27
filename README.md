@@ -23,12 +23,12 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     wget -N -O CentOSReinstall_beta_CentOS7.sh https://reinstall.pages.dev/CentOSReinstall_beta_CentOS7.sh && bash CentOSReinstall_beta_CentOS7.sh
     wget -N -O CentOSReinstall_beta_oraclelinux8.sh https://reinstall.pages.dev/CentOSReinstall_beta_oraclelinux8.sh && bash CentOSReinstall_beta_oraclelinux8.sh
     wget -N -O DebianReinstall_beta_debian9.sh https://reinstall.pages.dev/master/DebianReinstall_beta_debian9.sh && bash DebianReinstall_beta_debian9.sh
-    wget -N -O DebianReinstall_beta_debian10.sh https://reinstall.pages.dev/DebianReinstall_beta_debian10.sh && bash DebianReinstall_beta_debian10.sh
-    wget -N -O DebianReinstall_beta_debian11.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11.sh && bash DebianReinstall_beta_debian11.sh
-    wget -N -O DebianReinstall_beta_debian11_ma.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11_ma.sh && bash DebianReinstall_beta_debian11_ma.sh
+    wget -N -O DebianReinstall_beta_debian10.sh https://reinstall.pages.dev/DebianReinstall_beta_debian10.sh && chmod +x DebianReinstall_beta_debian10.sh &&  ./DebianReinstall_beta_debian10.sh
+    wget -N -O DebianReinstall_beta_debian11.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11.sh && chmod +x DebianReinstall_beta_debian11.sh &&  ./DebianReinstall_beta_debian11.sh
+    wget -N -O DebianReinstall_beta_debian11_ma.sh https://reinstall.pages.dev/DebianReinstall_beta_debian11_ma.sh && chmod +x DebianReinstall_beta_debian11_ma.sh &&  ./DebianReinstall_beta_debian11_ma.sh
     wget -N -O UbuntuReinstall_beta_ubuntu18.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu18.sh && bash UbuntuReinstall_beta_ubuntu18.sh
-    wget -N -O UbuntuReinstall_beta_ubuntu20.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu20.sh && bash UbuntuReinstall_beta_ubuntu20.sh
-    wget -N -O UbuntuReinstall_beta_ubuntu21.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu21.sh && bash UbuntuReinstall_beta_ubuntu21.sh
+    wget -N -O UbuntuReinstall_beta_ubuntu20.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu20.sh && chmod +x UbuntuReinstall_beta_ubuntu20.sh &&  ./UbuntuReinstall_beta_ubuntu20.sh
+    wget -N -O UbuntuReinstall_beta_ubuntu21.sh  https://reinstall.pages.dev/UbuntuReinstall_beta_ubuntu21.sh && chmod +x UbuntuReinstall_beta_ubuntu21.sh &&  ./UbuntuReinstall_beta_ubuntu21.sh
 常用杂烩
 
     wget -O dnscrypt-proxy.sh https://reinstall.pages.dev/dnscrypt-proxy.sh && chmod +x dnscrypt-proxy.sh && ./dnscrypt-proxy.sh
