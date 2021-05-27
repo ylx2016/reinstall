@@ -28,6 +28,7 @@ if [[ ${bit} == "x86_64" ]]; then
 	IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
 	#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/focal/amd64/cloud/20210225_11:39/rootfs.tar.xz'
 	#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
+	#https://us.images.linuxcontainers.org/images/ubuntu
 	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/amd64/cloud/${urldata}/rootfs.tar.xz
 	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
 	BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'

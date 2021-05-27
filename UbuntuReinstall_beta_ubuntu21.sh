@@ -4,6 +4,10 @@ export PATH
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
+if [ ! -f "/usr/bin/bash" ]; then
+	ln $(which bash) /usr/bin/bash
+fi
+
 if ! type curl >/dev/null 2>&1; then
     echo 'curl 未安装 安装中'
 	apt-get update && apt-get install curl -y || yum install curl -y
@@ -17,15 +21,30 @@ if ! type wget >/dev/null 2>&1; then
 else
     echo 'wget 已安装，继续'
 fi
-
-urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
-IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/amd64/cloud/${urldata}/rootfs.tar.xz
-#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/hirsute/amd64/cloud/20210225_11:39/rootfs.tar.xz'
-#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
-CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/hirsute/amd64/cloud/${urldata}/rootfs.tar.xz
-#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
-BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
-CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+bit=`uname -m`
+if [[ ${bit} == "x86_64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/amd64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/hirsute/amd64/cloud/20210225_11:39/rootfs.tar.xz'
+	#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
+	#https://us.images.linuxcontainers.org/images/ubuntu
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/hirsute/amd64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
+	CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+elif [[ ${bit} == "aarch64" ]]; then
+	urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/arm64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
+	IMGURL=https://cf-image.ylx.workers.dev/images/ubuntu/hirsute/arm64/cloud/${urldata}/rootfs.tar.xz
+	#IMGURL='https://us.images.linuxcontainers.org/images/ubuntu/hirsute/amd64/cloud/20210225_11:39/rootfs.tar.xz'
+	#IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
+	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/hirsute/arm64/cloud/${urldata}/rootfs.tar.xz
+	#BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
+	BUSYBOX='https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1'
+	CN_BUSYBOX='https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64'
+else
+	echo "此系统骨骼太清奇，不支持！"
+	exit
+fi
 ROOTDIR='/os'
 
 DOWNLOAD_IMG(){
@@ -78,17 +97,20 @@ DELALL(){
 	sysbios="0"
 	sysefi="0"
 	sysefifile=""
-	if [ -f "/boot/efi/EFI/BOOT/grub.cfg" ]; then
+	if [ -d "/sys/firmware/efi" ]; then
 		sysefi="1"
-	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
-		sysefi="1"
-	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
-		sysefi="1"
-	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
-		sysefi="1"	
+	# elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
+		# sysefi="1"
+	# elif [ -f "/boot/efi/EFI/grub/grub.cfg" ]; then
+		# sysefi="1"	
+	# elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
+		# sysefi="1"
+	# elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
+		# sysefi="1"	
 	else
 		sysbios="1"
 	fi
+	
     if command -v chattr >/dev/null 2>&1; then
         find / -type f \( ! -path '/dev/*' -and ! -path '/proc/*' -and ! -path '/sys/*' -and ! -path "$ROOTDIR/*" \) \
             -exec chattr -i {} + 2>/dev/null || true
@@ -118,21 +140,32 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
+	bit=$(uname -m)
+	cd /
 	DEBIAN_FRONTEND=noninteractive apt-get install -y systemd openssh-server passwd wget nano linux-image-generic linux-headers-generic htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
 	device=$(fdisk -l | grep -o /dev/*da | head -1)
 	if [[ ${sysefi} == "1" ]];then
 		cd /
-		apt-get install -y grub-efi grub-efi-amd64
+		bit=$(uname -m)
+		if [[ ${bit} == "x86_64" ]]; then
+			apt-get install -y grub-efi grub-efi-amd64
+		elif [[ ${bit} == "aarch64" ]]; then
+			#apt-get install -y efibootmgr grub-common grub2-common os-prober pv-grub-menu grub-uboot
+			#apt-get -y install grub2-common efivar grub-efi-arm64 os-prober pv-grub-menu grub-uboot efibootmgr
+			apt-get -y install grub2-common efivar grub-efi-arm64 efibootmgr
+		fi
 		grub-install
-		update-grub
-		cd /boot/efi/EFI && mkdir boot && cp ubuntu/grubx64.efi boot/bootx64.efi
+		$(which update-grub)
+		if [[ ${bit} == "x86_64" ]]; then
+			cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
+		fi
 		cd /
 	elif [[ ${sysbios} == "1" ]];then
 		cd /
 		grub-install $device
-		/usr/sbin/update-grub
+		$(which update-grub)
 		grub-install $device
 	fi
 	
@@ -152,7 +185,7 @@ INIT_OS(){
 
     	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
-	/usr/sbin/update-grub
+	$(which update-grub)
 	
 	systemctl enable networking
 	# network_adapter_name=$( ls /sys/class/net | grep ens )
@@ -188,7 +221,7 @@ EOFILE
     * hard nproc 65535
 EOFILE
 
-mkdir -p /etc/systemd/system/networking.service.d/
+$(which mkdir) -p /etc/systemd/system/networking.service.d/
 echo -e "[Service]\nTimeoutStartSec=15sec" > /etc/systemd/system/networking.service.d/timeout.conf
 
     # sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
@@ -205,7 +238,7 @@ echo -e "[Service]\nTimeoutStartSec=15sec" > /etc/systemd/system/networking.serv
     	touch /etc/hostname
    	echo "ylx2016" >> /etc/hostname
     	echo "127.0.0.1 ylx2016" >> /etc/hosts
-    	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /usr/bin/chmod +x /root/tcpx.sh
+    	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
 	
 }
