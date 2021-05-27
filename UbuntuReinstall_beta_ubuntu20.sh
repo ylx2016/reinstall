@@ -157,7 +157,7 @@ INIT_OS(){
 			apt-get -y install grub2-common efivar grub-efi-arm64 efibootmgr
 		fi
 		grub-install
-		update-grub
+		$(which update-grub)
 		if [[ ${bit} == "x86_64" ]]; then
 			cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
 		fi
@@ -165,7 +165,7 @@ INIT_OS(){
 	elif [[ ${sysbios} == "1" ]];then
 		cd /
 		grub-install $device
-		/usr/sbin/update-grub
+		$(which update-grub)
 		grub-install $device
 	fi
 	
@@ -185,7 +185,7 @@ INIT_OS(){
 
     	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
-	/usr/sbin/update-grub
+	$(which update-grub)
 	
 	systemctl enable networking
 	# network_adapter_name=$( ls /sys/class/net | grep ens )
@@ -238,7 +238,7 @@ echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.servi
     	touch /etc/hostname
    	echo "ylx2016" >> /etc/hostname
     	echo "127.0.0.1 ylx2016" >> /etc/hosts
-    	wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /usr/bin/chmod +x /root/tcpx.sh
+    	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
 	
 }

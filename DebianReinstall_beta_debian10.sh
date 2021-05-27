@@ -160,14 +160,14 @@ INIT_OS(){
 			apt-get install -y efibootmgr grub-common grub2-common os-prober pv-grub-menu grub-uboot
 		fi
 		grub-install
-		update-grub
+		$(which update-grub)
 		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
 		cd /
 		
 	elif [[ ${sysbios} == "1" ]];then
 		cd /
 		grub-install $device
-		/usr/sbin/update-grub
+		$(which update-grub)
 		grub-install $device
 	fi
 	
@@ -185,7 +185,7 @@ INIT_OS(){
 	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
 	sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
 	echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >> /etc/default/grub
-	/usr/sbin/update-grub
+	$(which update-grub)
 	
 	systemctl enable networking
 	
@@ -232,7 +232,7 @@ echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.servi
     touch /etc/hostname
     echo "ylx2016" >> /etc/hostname
     echo "127.0.0.1 ylx2016" >> /etc/hosts
-    $(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
+    $(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 }
 
 function isValidIp() {

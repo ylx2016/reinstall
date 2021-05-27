@@ -242,11 +242,11 @@ echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.servi
 	fi
 	echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 	rm -rf /etc/hostname
-    	touch /etc/hostname
+    	$(which touch) /etc/hostname
    	echo "ylx2016" >> /etc/hostname
     	echo "127.0.0.1 ylx2016" >> /etc/hosts
-    	/usr/bin/wget -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && /bin/chmod +x /root/tcpx.sh
-	/usr/bin/wget -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && /bin/chmod 700 /root/install.sh && /bin/mkdir /etc/v2ray-agent && mv "/root/install.sh" /etc/v2ray-agent/install.sh && ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma && /bin/chmod 700 /usr/bin/vasma
+    	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
+	$(which wget) -P /root -N "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && $(which chmod) 700 /root/install.sh && $(which mkdir) /etc/v2ray-agent && $(which mv) "/root/install.sh" /etc/v2ray-agent/install.sh && $(which ln) -s /etc/v2ray-agent/install.sh /usr/bin/vasma && $(which chmod) 700 /usr/bin/vasma
 	systemctl disable exim4
 	# exit
 }
