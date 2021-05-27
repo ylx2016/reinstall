@@ -96,17 +96,20 @@ DELALL(){
 	sysbios="0"
 	sysefi="0"
 	sysefifile=""
-	if [ -f "/boot/efi/EFI/BOOT/grub.cfg" ]; then
+	if [ -f "/sys/firmware/efi" ]; then
 		sysefi="1"
-	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
-		sysefi="1"
-	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
-		sysefi="1"
-	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
-		sysefi="1"
+	# elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
+		# sysefi="1"
+	# elif [ -f "/boot/efi/EFI/grub/grub.cfg" ]; then
+		# sysefi="1"	
+	# elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
+		# sysefi="1"
+	# elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
+		# sysefi="1"	
 	else
 		sysbios="1"
 	fi
+	
     if command -v chattr >/dev/null 2>&1; then
         find / -type f \( ! -path '/dev/*' -and ! -path '/proc/*' -and ! -path '/sys/*' -and ! -path "$ROOTDIR/*" \) \
             -exec chattr -i {} + 2>/dev/null || true
@@ -137,6 +140,7 @@ INIT_OS(){
     export LC_ALL=C.UTF-8
     apt-get update
 	bit=`uname -m`
+	cd /
 	if [[ ${bit} == "x86_64" ]]; then
 		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo
 	elif [[ ${bit} == "aarch64" ]]; then
