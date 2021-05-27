@@ -94,7 +94,7 @@ DELALL(){
 	sysbios="0"
 	sysefi="0"
 	sysefifile=""
-	if [ -f "/sys/firmware/efi" ]; then
+	if [ -d "/sys/firmware/efi" ]; then
 		sysefi="1"
 	# elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
 		# sysefi="1"
