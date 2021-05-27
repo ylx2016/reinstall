@@ -166,7 +166,9 @@ INIT_OS(){
 		fi
 		grub-install
 		update-grub
-		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
+		if [[ ${bit} == "x86_64" ]]; then
+			cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
+		fi
 		cd /
 		
 	elif [[ ${sysbios} == "1" ]];then
