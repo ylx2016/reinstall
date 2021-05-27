@@ -98,6 +98,8 @@ DELALL(){
 		sysefi="1"
 	elif [ -f "/boot/efi/boot/grub/grub.cfg" ]; then
 		sysefi="1"
+	elif [ -f "/boot/efi/EFI/grub/grub.cfg" ]; then
+		sysefi="1"	
 	elif [ -f "/boot/efi/EFI/ubuntu/grub.cfg" ]; then
 		sysefi="1"
 	elif [ -f "/boot/efi/EFI/debian/grub.cfg" ]; then
@@ -120,6 +122,7 @@ EXTRACT_IMG(){
 }
 
 INIT_OS(){
+	cd /
 	rm -rf /etc/resolv.conf
 	touch /etc/resolv.conf
 	if [[ "$isCN" == '1' ]];then
@@ -135,6 +138,7 @@ INIT_OS(){
     export LC_ALL=C.UTF-8
     apt-get update
 	bit=`uname -m`
+	cd /
 	if [[ ${bit} == "x86_64" ]]; then
 		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo openssh-server
 	elif [[ ${bit} == "aarch64" ]]; then
