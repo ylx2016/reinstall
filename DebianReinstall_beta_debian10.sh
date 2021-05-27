@@ -22,6 +22,11 @@ fi
 
 bit=`uname -m`
 
+if [[ ${bit} == "aarch64" ]]; then
+	ehco "很遗憾，不支持此CPU重装，换debian11吧"
+	exit
+fi	
+
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
 
