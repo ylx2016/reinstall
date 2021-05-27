@@ -134,6 +134,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
+	bit=`uname -m`
 	if [[ ${bit} == "x86_64" ]]; then
 		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo openssh-server
 	elif [[ ${bit} == "aarch64" ]]; then
