@@ -32,7 +32,7 @@ elif [[ ${bit} == "aarch64" ]]; then
 	IMGURL=https://cf-image.ylx.workers.dev/images/debian/buster/armhf/cloud/${urldata}/rootfs.tar.xz
 	#IMGURL='https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/buster/rootfs.tar.xz'
 	CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/buster/armhf/cloud/${urldata}/rootfs.tar.xz
-elif
+else
 	echo "此系统骨骼太清奇，不支持！"
 	exit
 fi
