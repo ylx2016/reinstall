@@ -4,7 +4,7 @@ export PATH
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
-if [ -f "/usr/bin/bash" ]; then
+if [ ! -f "/usr/bin/bash" ]; then
 	ln ${which bash} /usr/bin/bash
 fi
 
