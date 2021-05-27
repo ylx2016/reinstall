@@ -1,10 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
-if ! type /usr/bin/bash >/dev/null 2>&1; then
-	ln /bin/bash /usr/bin/bash
-fi	
+if [ -f "/usr/bin/bash" ]; then
+	ln ${which bash} /usr/bin/bash
+fi
 
 if ! type curl >/dev/null 2>&1; then
     echo 'curl 未安装 安装中'
@@ -19,6 +21,11 @@ if ! type wget >/dev/null 2>&1; then
 else
     echo 'wget 已安装，继续'
 fi
+
+my_wget=$(which wget)
+my_curl=$(which curl)
+my_mkdir=$(which mkdir)
+
 
 bit=`uname -m`
 if [[ ${bit} == "x86_64" ]]; then
@@ -226,7 +233,7 @@ EOFILE
     * hard nproc 65535
 EOFILE
 
-mkdir -p /etc/systemd/system/networking.service.d/
+$(which mkdir) -p /etc/systemd/system/networking.service.d/
 echo -e "[Service]\nTimeoutStartSec=15sec" > /etc/systemd/system/networking.service.d/timeout.conf
 
     # sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf

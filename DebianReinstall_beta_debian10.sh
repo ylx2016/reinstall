@@ -2,6 +2,9 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
+if [ -f "/usr/bin/bash" ]; then
+	ln ${which bash} /usr/bin/bash
+fi
 
 if ! type curl >/dev/null 2>&1; then
     echo 'curl 未安装 安装中'
@@ -217,7 +220,7 @@ EOFILE
     * hard nproc 65535
 EOFILE
 
-mkdir -p /etc/systemd/system/networking.service.d/
+$(which mkdir) -p /etc/systemd/system/networking.service.d/
 echo -e "[Service]\nTimeoutStartSec=5sec" > /etc/systemd/system/networking.service.d/timeout.conf
 
     #sed -i 's/4096/65535/' /etc/security/limits.d/20-nproc.conf
