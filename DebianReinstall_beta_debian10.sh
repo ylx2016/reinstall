@@ -136,6 +136,7 @@ INIT_OS(){
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
     apt-get update
+	bit=`uname -m`
 	if [[ ${bit} == "x86_64" ]]; then
 		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo
 	elif [[ ${bit} == "aarch64" ]]; then
@@ -149,8 +150,8 @@ INIT_OS(){
 		if [[ ${bit} == "x86_64" ]]; then
 			apt-get install -y grub-efi grub-efi-amd64
 		elif [[ ${bit} == "aarch64" ]]; then
-			apt-get install -y efibootmgr grub-common grub2-common os-prober
-		fi	
+			apt-get install -y efibootmgr grub-common grub2-common os-prober pv-grub-menu grub-uboot
+		fi
 		grub-install
 		update-grub
 		cd /boot/efi/EFI && mkdir boot && cp debian/grubx64.efi boot/bootx64.efi
