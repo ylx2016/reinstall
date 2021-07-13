@@ -44,3 +44,4 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     wget -O wgcfgo.sh https://ylx.pages.dev/wgcfgo.sh && chmod +x wgcfgo.sh && ./wgcfgo.sh
     sudo date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z"
     wget -O blcok.sh https://ylx.pages.dev/blcok.sh && chmod +x blcok.sh && ./blcok.sh
+    curl https://raw.githubusercontent.com/zhucaidan/mtr_trace/main/mtr_trace.sh|bash
