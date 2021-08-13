@@ -45,3 +45,4 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     sudo date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z"
     wget -O blcok.sh https://ylx.pages.dev/blcok.sh && chmod +x blcok.sh && ./blcok.sh
     curl https://raw.githubusercontent.com/zhucaidan/mtr_trace/main/mtr_trace.sh|bash
+    systemctl enable warp-svc && warp-cli --accept-tos register && warp-cli --accept-tos set-mode proxy && warp-cli --accept-tos set-proxy-port 31303 && warp-cli --accept-tos connect
