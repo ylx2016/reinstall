@@ -35,6 +35,7 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     wget -O dnscrypt-proxy.sh https://reinstall.pages.dev/dnscrypt-proxy.sh && chmod +x dnscrypt-proxy.sh && ./dnscrypt-proxy.sh
     sed -i '/Port /d' /etc/ssh/sshd_config && echo "Port 52890" >> /etc/ssh/sshd_config && service sshd restart
     apt-get update && apt-get dist-upgrade -y && apt-get autoremove -y && systemctl disable exim4 && systemctl stop exim4
+    apt update && apt -t bullseye-backports upgrade -y
     rm -rf /etc/hostname && touch /etc/hostname && echo "ylx2016" >> /etc/hostname && echo "127.0.0.1 ylx2016" >> /etc/hosts
     bash <(curl -sSL "https://github.com/CoiaPrant/MediaUnlock_Test/raw/main/check.sh")
     bash <(curl -sSL "https://raw.githubusercontent.com/xb0or/nftest/main/netflix.sh")
