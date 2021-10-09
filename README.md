@@ -47,3 +47,5 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     wget -O blcok.sh https://ylx.pages.dev/blcok.sh && chmod +x blcok.sh && ./blcok.sh
     curl https://raw.githubusercontent.com/zhucaidan/mtr_trace/main/mtr_trace.sh|bash
     apt remove cloudflare-warp -y && apt install cloudflare-warp -y && systemctl enable warp-svc && warp-cli --accept-tos register && warp-cli --accept-tos set-mode proxy && warp-cli --accept-tos set-proxy-port 31303 && warp-cli --accept-tos connect
+    
+    wget -O tcpa.sh https://github.com/ylx2016/reinstall/raw/master/tcpa.sh sh tcpa.sh
