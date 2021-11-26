@@ -49,3 +49,5 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     apt remove cloudflare-warp -y && apt install cloudflare-warp -y && systemctl enable warp-svc && warp-cli --accept-tos register && warp-cli --accept-tos set-mode proxy && warp-cli --accept-tos set-proxy-port 31303 && warp-cli --accept-tos connect
     
     wget -O tcpa.sh https://github.com/ylx2016/reinstall/raw/master/tcpa.sh sh tcpa.sh
+    
+    wget -qO- bench.sh | bash
