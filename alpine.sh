@@ -3,25 +3,26 @@ logfile="/tmp/kvm-alpine.log"
 if [ "$1" = "--step-chroot" ]; then
   printf "" > "$logfile"
   printf "  Installing packages..." >&2
-  if ! apk add --no-cache alpine-base linux-virt syslinux grub grub-bios e2fsprogs eudev openssh rng-tools rng-tools-openrc >>"$logfile" 2>>"$logfile"; then
+  if ! apk add --no-cache alpine-base linux-virt syslinux grub grub-bios e2fsprogs eudev openssh openssh-server openssh-sftp-server rng-tools rng-tools-openrc htop nano curl wget >>"$logfile" 2>>"$logfile"; then
     echo
     exit 1
   fi
   echo " Done" >&2
   printf "  Configuring services..." >&2
 #系统自启动服务，根据需要修改
-#  rc-update add --quiet hostname boot
+  rc-update add --quiet hostname boot
   rc-update add --quiet networking boot
-#  rc-update add --quiet urandom boot
+  rc-update add --quiet urandom boot
   rc-update add --quiet crond default
-#  rc-update add --quiet swap boot
+  rc-update add --quiet swap boot
   rc-update add --quiet udev sysinit
   rc-update add --quiet udev-trigger sysinit
   rc-update add --quiet sshd default
-#  rc-update add --quiet rngd boot
+  rc-update add --quiet rngd boot
   sed -i -r -e 's/^(tty[2-6]:)/#\1/' /etc/inittab
   echo " Done" >&2
   printf "  Installing bootloader..." >&2
+  
 #定义grub安装的磁盘以及root的mount分区，part变量下面用到
 disk=$(fdisk -l|grep Disk|awk '{print $2}'|awk -F: '{print $1}')
 part=$(fdisk -l|grep Linux|sed -n '1p'|awk '{print $1}')
