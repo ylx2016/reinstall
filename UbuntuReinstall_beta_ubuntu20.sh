@@ -229,7 +229,7 @@ INIT_OS() {
   [ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
     err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
 
-  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O - \"$authorized_keys_url\" > ~root/.ssh/authorized_keys && sed -i '/PasswordAuthentication /d' /etc/ssh/sshd_config && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
+  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O ~root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication /d' /etc/ssh/sshd_config && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
 
   echo "net.core.default_qdisc=fq" >>/etc/sysctl.d/99-sysctl.conf
   echo "net.ipv4.tcp_congestion_control=bbr" >>/etc/sysctl.d/99-sysctl.conf
