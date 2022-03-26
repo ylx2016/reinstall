@@ -22,10 +22,6 @@ err() {
   exit 1
 }
 
-configure_sshd() {
-  sed -Ei \""s/^#?$1 .+/$1 $2/"\" /etc/ssh/sshd_config
-}
-
 download() {
 
     if _exists wget; then
@@ -221,17 +217,11 @@ INIT_OS() {
 
   sed -i '/Port /d' /etc/ssh/sshd_config
   echo "Port 52890" >>/etc/ssh/sshd_config
-  #sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
-  #sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
-  #sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
-  #sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
-  #sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-
-  configure_sshd PermitRootLogin yes
-  configure_sshd MaxAuthTries 3
-  configure_sshd GSSAPIAuthentication no
-  configure_sshd ClientAliveInterval 30
-  configure_sshd UseDNS no
+  sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
+  sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
+  sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
+  sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
+  sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
   systemctl enable ssh
 
   echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
@@ -239,7 +229,7 @@ INIT_OS() {
   [ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
     err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
 
-  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O - \"$authorized_keys_url\" >>~root/.ssh/authorized_keys && configure_sshd PasswordAuthentication no
+  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O - \"$authorized_keys_url\" > ~root/.ssh/authorized_keys && sed -i '/PasswordAuthentication /d' /etc/ssh/sshd_config && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
 
   echo "net.core.default_qdisc=fq" >>/etc/sysctl.d/99-sysctl.conf
   echo "net.ipv4.tcp_congestion_control=bbr" >>/etc/sysctl.d/99-sysctl.conf
