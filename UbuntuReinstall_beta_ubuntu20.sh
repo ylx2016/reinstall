@@ -4,13 +4,39 @@ export PATH
 
 # Default Password: blog.ylx.me , Change it after installation ! By dansnow and YLX
 
+_exists() {
+  local cmd="$1"
+  if eval type type >/dev/null 2>&1; then
+    eval type "$cmd" >/dev/null 2>&1
+  elif command >/dev/null 2>&1; then
+    command -v "$cmd" >/dev/null 2>&1
+  else
+    which "$cmd" >/dev/null 2>&1
+  fi
+  local rt=$?
+  return ${rt}
+}
+
 err() {
   printf "\nError: %s.\n" "$1" 1>&2
   exit 1
 }
 
 configure_sshd() {
-  in_target sed -Ei \""s/^#?$1 .+/$1 $2/"\" /etc/ssh/sshd_config
+  sed -Ei \""s/^#?$1 .+/$1 $2/"\" /etc/ssh/sshd_config
+}
+
+download() {
+
+    if _exists wget; then
+        wget -O "$2" "$1"
+    elif _exists curl; then
+        curl -fL "$1" -o "$2"
+    elif _exists busybox && busybox wget --help > /dev/null 2>&1; then
+        busybox wget -O "$2" "$1"
+    else
+        err 'Cannot find "wget", "curl" or "busybox wget" to download files'
+    fi
 }
 
 while [ $# -gt 0 ]; do
