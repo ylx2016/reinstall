@@ -215,13 +215,14 @@ INIT_OS() {
     grub-install $device
   fi
 
-  sed -i '/Port /d' /etc/ssh/sshd_config
-  echo "Port 52890" >>/etc/ssh/sshd_config
+  #sed -i '/Port /d' /etc/ssh/sshd_config
+  #echo "Port 52890" >>/etc/ssh/sshd_config
   sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
   sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
   sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
   sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+  sed -i 's/#UseDNS no/UseDNS no/' /etc/ssh/sshd_config
   systemctl enable ssh
 
   echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
