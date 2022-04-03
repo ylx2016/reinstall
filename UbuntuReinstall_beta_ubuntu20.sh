@@ -67,6 +67,10 @@ else
   echo 'wget 已安装，继续'
 fi
 
+if [ ! -f "/usr/bin/wget" ]; then
+  ln $(which wget) /usr/bin/wget
+fi
+
 bit=$(uname -m)
 if [[ ${bit} == "x86_64" ]]; then
   urldata=$(rm -rf /tmp/url.tmp && curl -o /tmp/url.tmp 'https://cf-image.ylx.workers.dev/images/ubuntu/focal/amd64/cloud/?C=M;O=D' && grep -o 2.......[\_]..[\:].. /tmp/url.tmp | head -n 1)
