@@ -91,8 +91,8 @@ elif [[ ${bit} == "aarch64" ]]; then
   #IMGURL='https://github.com/ylx2016/reinstall/releases/download/docker-file/Ubuntu20_2021.2.27_rootfs.tar.xz'
   CN_IMGURL=https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/ubuntu/focal/arm64/cloud/${urldata}/rootfs.tar.xz
   #BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64'
-  BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
-  CN_BUSYBOX='https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox'
+  BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv8l'
+  CN_BUSYBOX='https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv8l'
 else
   echo "此系统骨骼太清奇，不支持！"
   exit
