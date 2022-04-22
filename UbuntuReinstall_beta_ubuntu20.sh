@@ -254,7 +254,8 @@ INIT_OS() {
    auto lo
 iface lo inet loopback
 
-auto $network_adapter_name
+#auto $network_adapter_name
+allow-hotplug $network_adapter_name
 iface $network_adapter_name inet static
 address $MAINIP
 netmask $NETMASK
@@ -265,7 +266,8 @@ EOFILE
    auto lo
 iface lo inet loopback
 
-auto $network_adapter_name
+#auto $network_adapter_name
+allow-hotplug $network_adapter_name
 iface $network_adapter_name inet dhcp
 iface $network_adapter_name inet6 dhcp
 EOFILE
