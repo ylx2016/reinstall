@@ -246,7 +246,7 @@ INIT_OS() {
 
   [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O ~root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
   
-  [ -n "$ssh_port" ] && sed -i '/Port\s/s/.*/Port $ssh_port/' /etc/ssh/sshd_config
+  [ -n "$ssh_port" ] && sed -i "/Port\s/s/.*/Port ${ssh_port}/" /etc/ssh/sshd_config
   
   echo "net.core.default_qdisc=fq" >>/etc/sysctl.d/99-sysctl.conf
   echo "net.ipv4.tcp_congestion_control=bbr" >>/etc/sysctl.d/99-sysctl.conf
