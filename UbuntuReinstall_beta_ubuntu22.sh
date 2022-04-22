@@ -238,8 +238,8 @@ INIT_OS() {
   sed -i '/UseDNS\s/s/.*/UseDNS no/' /etc/ssh/sshd_config
   systemctl enable ssh
 
-  
-  [[ -n "$password" ] && echo -e "$password\n$password" | passwd "root" ] || echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
+  echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
+  [ -n "$password" ] && echo -e "$password\n$password" | passwd "root"
 
   [ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
     err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
