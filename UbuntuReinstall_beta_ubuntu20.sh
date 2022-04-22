@@ -35,6 +35,7 @@ download() {
     fi
 }
 
+#from bohanyang/debi
 while [ $# -gt 0 ]; do
   case $1 in
 
@@ -42,6 +43,14 @@ while [ $# -gt 0 ]; do
     authorized_keys_url=$2
     shift
     ;;
+  --password)
+    password=$2
+    shift
+    ;;
+  --ssh-port)
+    ssh_port=$2
+    shift
+    ;;	
   *)
     err "Unknown option: \"$1\""
     ;;
@@ -223,20 +232,22 @@ INIT_OS() {
 
   #sed -i '/Port /d' /etc/ssh/sshd_config
   #echo "Port 52890" >>/etc/ssh/sshd_config
-  sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
-  sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
-  sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
-  sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
-  sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-  sed -i 's/#UseDNS no/UseDNS no/' /etc/ssh/sshd_config
+  sed -i '/^#PermitRootLogin\s/s/.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+  sed -i '/MaxAuthTries\s/s/.*/MaxAuthTries 3/' /etc/ssh/sshd_config
+  sed -i '/GSSAPIAuthentication\s/s/.*/GSSAPIAuthentication no/' /etc/ssh/sshd_config
+  sed -i '/ClientAliveInterval\s/s/.*/ClientAliveInterval 30/' /etc/ssh/sshd_config
+  sed -i '/UseDNS\s/s/.*/UseDNS no/' /etc/ssh/sshd_config
   systemctl enable ssh
 
   echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
+  [ -n "$password" ] && echo -e "$password\n$password" | passwd "root"
 
   [ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
     err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
 
-  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O ~root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication /d' /etc/ssh/sshd_config && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
+  [ -n "$authorized_keys_url" ] && mkdir -m 0700 -p ~root/.ssh && wget -O ~root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  
+  [ -n "$ssh_port" ] && sed -i "/Port\s/s/.*/Port ${ssh_port}/" /etc/ssh/sshd_config
 
   echo "net.core.default_qdisc=fq" >>/etc/sysctl.d/99-sysctl.conf
   echo "net.ipv4.tcp_congestion_control=bbr" >>/etc/sysctl.d/99-sysctl.conf
