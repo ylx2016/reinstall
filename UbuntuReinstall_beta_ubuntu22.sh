@@ -313,6 +313,7 @@ EOFILE
   $(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
   ln -fs /usr/bin/bash /usr/bin/sh
   timedatectl set-timezone Asia/Shanghai
+  systemctl disable unattended-upgrades networkd-dispatcher
 
 }
 
