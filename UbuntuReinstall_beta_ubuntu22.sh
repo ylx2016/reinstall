@@ -254,6 +254,8 @@ INIT_OS() {
 
   sed -i '/GRUB_CMDLINE_LINUX=/d' /etc/default/grub
   echo "GRUB_CMDLINE_LINUX=\"net.ifnames=0 biosdevname=0\"" >>/etc/default/grub
+  sed -i '/GRUB_TIMEOUT_STYLE=/d' /etc/default/grub
+  sed -i 's/^\(GRUB_TIMEOUT=\)[0-9]\+/\110/' /etc/default/grub
   $(which update-grub)
 
   systemctl enable networking
