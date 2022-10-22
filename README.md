@@ -52,3 +52,4 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     wget -O tcpa.sh https://github.com/ylx2016/reinstall/raw/master/tcpa.sh sh tcpa.sh
     
     wget -qO- bench.sh | bash
+    bash <(curl -Ls unlock.moe)
