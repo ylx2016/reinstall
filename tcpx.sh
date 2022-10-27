@@ -50,7 +50,7 @@ check_cn() {
   if [[ "$geoip" != "" ]]; then
     # echo "下面使用fastgit.org的加速服务"
     # echo ${1//github.com/download.fastgit.org}
-    echo https://endpoint.fastgit.org/$1
+	echo https://endpoint.fastgit.org/$1
   else
     echo $1
   fi
@@ -127,10 +127,10 @@ installbbr() {
       imgurl=$(curl -s 'https://api.github.com/repos/ylx2016/kernel/releases' | grep ${github_tag} | grep 'deb' | grep -v 'headers' | grep -v 'devel' | awk -F '"' '{print $4}')
       #headurl=https://github.com/ylx2016/kernel/releases/download/$github_tag/linux-headers-${github_ver}_${github_ver}-1_amd64.deb
       #imgurl=https://github.com/ylx2016/kernel/releases/download/$github_tag/linux-image-${github_ver}_${github_ver}-1_amd64.deb
-
+      
       headurl=$(check_cn $headurl)
       imgurl=$(check_cn $imgurl)
-      echo -e "正在检查headers下载连接...."
+	  echo -e "正在检查headers下载连接...."
       checkurl $headurl
       echo -e "正在检查内核下载连接...."
       checkurl $imgurl
@@ -145,19 +145,9 @@ installbbr() {
 
   cd .. && rm -rf bbr
 
-  detele_kernel
   BBR_grub
-  echo -e "${Tip} ${Red_font_prefix}请检查上面是否有内核信息，无内核千万别重启${Font_color_suffix}"
-  echo -e "${Tip} ${Red_font_prefix}rescue不是正常内核，要排除这个${Font_color_suffix}"
-  echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}BBR${Font_color_suffix}"
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
   check_kernel
-  stty erase '^H' && read -p "需要重启VPS后，才能开启BBR，是否现在重启 ? [Y/n] :" yn
-  [ -z "${yn}" ] && yn="y"
-  if [[ $yn == [Yy] ]]; then
-    echo -e "${Info} VPS 重启中..."
-    reboot
-  fi
-  #echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功及手动调整内核启动顺序"
 }
 
 #安装BBRplus内核 4.14.129
@@ -213,19 +203,9 @@ installbbrplus() {
   fi
 
   cd .. && rm -rf bbrplus
-  detele_kernel
   BBR_grub
-  echo -e "${Tip} ${Red_font_prefix}请检查上面是否有内核信息，无内核千万别重启${Font_color_suffix}"
-  echo -e "${Tip} ${Red_font_prefix}rescue不是正常内核，要排除这个${Font_color_suffix}"
-  echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}BBRplus${Font_color_suffix}"
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
   check_kernel
-  stty erase '^H' && read -p "需要重启VPS后，才能开启BBRplus，是否现在重启 ? [Y/n] :" yn
-  [ -z "${yn}" ] && yn="y"
-  if [[ $yn == [Yy] ]]; then
-    echo -e "${Info} VPS 重启中..."
-    reboot
-  fi
-  #echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功及手动调整内核启动顺序"
 }
 
 #安装Lotserver内核
@@ -333,19 +313,9 @@ installlot() {
     [ -d '/var/lib/apt/lists' ] && find /var/lib/apt/lists -type f -delete
   fi
 
-  detele_kernel
   BBR_grub
-  echo -e "${Tip} ${Red_font_prefix}请检查上面是否有内核信息，无内核千万别重启${Font_color_suffix}"
-  echo -e "${Tip} ${Red_font_prefix}rescue不是正常内核，要排除这个${Font_color_suffix}"
-  echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}Lotserver${Font_color_suffix}"
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
   check_kernel
-  stty erase '^H' && read -p "需要重启VPS后，才能开启Lotserver，是否现在重启 ? [Y/n] :" yn
-  [ -z "${yn}" ] && yn="y"
-  if [[ $yn == [Yy] ]]; then
-    echo -e "${Info} VPS 重启中..."
-    reboot
-  fi
-  #echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功及手动调整内核启动顺序"
 }
 
 #安装xanmod内核  from xanmod.org
@@ -454,19 +424,9 @@ installxanmod() {
   fi
 
   cd .. && rm -rf xanmod
-  detele_kernel
   BBR_grub
-  echo -e "${Tip} ${Red_font_prefix}请检查上面是否有内核信息，无内核千万别重启${Font_color_suffix}"
-  echo -e "${Tip} ${Red_font_prefix}rescue不是正常内核，要排除这个${Font_color_suffix}"
-  echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}BBR${Font_color_suffix}"
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
   check_kernel
-  stty erase '^H' && read -p "需要重启VPS后，才能开启BBR，是否现在重启 ? [Y/n] :" yn
-  [ -z "${yn}" ] && yn="y"
-  if [[ $yn == [Yy] ]]; then
-    echo -e "${Info} VPS 重启中..."
-    reboot
-  fi
-  #echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功及手动调整内核启动顺序"
 }
 
 #安装bbr2内核 集成到xanmod内核了
@@ -584,19 +544,9 @@ installbbrplusnew() {
   fi
 
   cd .. && rm -rf bbrplusnew
-  detele_kernel
   BBR_grub
-  echo -e "${Tip} ${Red_font_prefix}请检查上面是否有内核信息，无内核千万别重启${Font_color_suffix}"
-  echo -e "${Tip} ${Red_font_prefix}rescue不是正常内核，要排除这个${Font_color_suffix}"
-  echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}BBRplus${Font_color_suffix}"
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
   check_kernel
-  stty erase '^H' && read -p "需要重启VPS后，才能开启BBRplus，是否现在重启 ? [Y/n] :" yn
-  [ -z "${yn}" ] && yn="y"
-  if [[ $yn == [Yy] ]]; then
-    echo -e "${Info} VPS 重启中..."
-    reboot
-  fi
-  #echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功及手动调整内核启动顺序"
 
 }
 
@@ -986,7 +936,7 @@ net.ipv4.tcp_tw_reuse = 0
 net.ipv4.tcp_fin_timeout = 15
 net.ipv4.ip_local_port_range = 1024 65535
 net.ipv4.tcp_max_tw_buckets = 5000
-#net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_rmem = 4096 87380 67108864
 net.ipv4.tcp_wmem = 4096 65536 67108864
 net.ipv4.udp_rmem_min = 8192
@@ -1064,7 +1014,7 @@ EOF
     :
   else
     sed -i '/required pam_limits.so/d' /etc/pam.d/common-session
-    echo "session required pam_limits.so" >>/etc/pam.d/common-session
+    echo "session required pam_limits.so" >> /etc/pam.d/common-session
   fi
   systemctl daemon-reload
   echo -e "${Info}johnrosen1优化方案应用结束，可能需要重启！"
@@ -1085,28 +1035,28 @@ sysctl --system
 #更新脚本
 Update_Shell() {
   echo -e "当前版本为 [ ${sh_ver} ]，开始检测最新版本..."
-  sh_new_ver=$(wget -qO- "https://github.com/ylx2016/Linux-NetSpeed/raw/master/tcp.sh" | grep 'sh_ver="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
+  sh_new_ver=$(wget -qO- "https://github.com/ylx2016/Linux-NetSpeed/raw/master/tcpx.sh" | grep 'sh_ver="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
   [[ -z ${sh_new_ver} ]] && echo -e "${Error} 检测最新版本失败 !" && start_menu
   if [ ${sh_new_ver} != ${sh_ver} ]; then
     echo -e "发现新版本[ ${sh_new_ver} ]，是否更新？[Y/n]"
     read -p "(默认: y):" yn
     [[ -z "${yn}" ]] && yn="y"
     if [[ ${yn} == [Yy] ]]; then
-      wget -N "https://${github}/tcp.sh" && chmod +x tcp.sh && ./tcp.sh
+      wget -N "https://${github}/tcpx.sh" && chmod +x tcpx.sh && ./tcpx.sh
       echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !"
     else
       echo && echo "	已取消..." && echo
     fi
   else
     echo -e "当前已是最新版本[ ${sh_new_ver} ] !"
-    sleep 2s && ./tcp.sh
+    sleep 2s && ./tcpx.sh
   fi
 }
 
-#切换到不卸载内核版本
-gototcpx() {
+#切换到卸载内核版本
+gototcp() {
   clear
-  wget -O tcpx.sh "https://github.com/ylx2016/Linux-NetSpeed/raw/master/tcpx.sh" && chmod +x tcpx.sh && ./tcpx.sh
+  wget -O tcp.sh "https://github.com/ylx2016/Linux-NetSpeed/raw/master/tcp.sh" && chmod +x tcp.sh && ./tcp.sh
 }
 
 #切换到秋水逸冰BBR安装脚本
@@ -1161,21 +1111,23 @@ net.ipv6.conf.lo.disable_ipv6 = 0" >>/etc/sysctl.d/99-sysctl.conf
 #开始菜单
 start_menu() {
   clear
-  echo && echo -e " TCP加速 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix} from blog.ylx.me 母鸡慎用
+  echo && echo -e " TCP加速 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}] 不卸内核${Font_color_suffix} from blog.ylx.me 母鸡慎用
  ${Green_font_prefix}0.${Font_color_suffix} 升级脚本
- ${Green_font_prefix}9.${Font_color_suffix} 切换到不卸载内核版本	${Green_font_prefix}10.${Font_color_suffix} 切换到一键DD系统脚本
- ${Green_font_prefix}1.${Font_color_suffix} 安装 BBR原版内核
+ ${Green_font_prefix}9.${Font_color_suffix} 切换到卸载内核版本		${Green_font_prefix}10.${Font_color_suffix} 切换到一键DD系统脚本
+ ${Green_font_prefix}1.${Font_color_suffix} 安装 BBR原版内核		${Green_font_prefix}7.${Font_color_suffix} 安装 Zen官方版内核
  ${Green_font_prefix}2.${Font_color_suffix} 安装 BBRplus版内核		${Green_font_prefix}5.${Font_color_suffix} 安装 BBRplus新版内核
  ${Green_font_prefix}3.${Font_color_suffix} 安装 Lotserver(锐速)内核	${Green_font_prefix}6.${Font_color_suffix} 安装 xanmod版内核
+ ${Green_font_prefix}30.${Font_color_suffix} 安装 官方稳定内核		${Green_font_prefix}31.${Font_color_suffix} 安装 官方最新内核 backports/elrepo
+ ${Green_font_prefix}32.${Font_color_suffix} 安装 XANMOD官方内核	${Green_font_prefix}33.${Font_color_suffix} 安装 XANMOD官方高响应内核
  ${Green_font_prefix}11.${Font_color_suffix} 使用BBR+FQ加速		${Green_font_prefix}12.${Font_color_suffix} 使用BBR+FQ_PIE加速 
  ${Green_font_prefix}13.${Font_color_suffix} 使用BBR+CAKE加速
  ${Green_font_prefix}14.${Font_color_suffix} 使用BBR2+FQ加速	 	${Green_font_prefix}15.${Font_color_suffix} 使用BBR2+FQ_PIE加速 
  ${Green_font_prefix}16.${Font_color_suffix} 使用BBR2+CAKE加速
  ${Green_font_prefix}17.${Font_color_suffix} 开启ECN	 		${Green_font_prefix}18.${Font_color_suffix} 关闭ECN
- ${Green_font_prefix}19.${Font_color_suffix} 使用BBRplus+FQ版加速 
- ${Green_font_prefix}20.${Font_color_suffix} 使用Lotserver(锐速)加速 
+ ${Green_font_prefix}19.${Font_color_suffix} 使用BBRplus+FQ版加速       ${Green_font_prefix}20.${Font_color_suffix} 使用Lotserver(锐速)加速
  ${Green_font_prefix}21.${Font_color_suffix} 系统配置优化	 	${Green_font_prefix}22.${Font_color_suffix} 应用johnrosen1的优化方案
- ${Green_font_prefix}23.${Font_color_suffix} 禁用IPv6	 		${Green_font_prefix}24.${Font_color_suffix} 开启IPv6  
+ ${Green_font_prefix}23.${Font_color_suffix} 禁用IPv6	 		${Green_font_prefix}24.${Font_color_suffix} 开启IPv6
+ ${Green_font_prefix}51.${Font_color_suffix} 查看排序内核               ${Green_font_prefix}52.${Font_color_suffix} 删除保留指定内核
  ${Green_font_prefix}25.${Font_color_suffix} 卸载全部加速	 	${Green_font_prefix}99.${Font_color_suffix} 退出脚本 
 ————————————————————————————————————————————————————————————————" &&
     check_status
@@ -1209,8 +1161,23 @@ start_menu() {
   6)
     check_sys_xanmod
     ;;
+  7)
+    check_sys_official_zen
+    ;;	
+  30)
+    check_sys_official
+    ;;
+  31)
+    check_sys_official_bbr
+    ;;
+  32)
+    check_sys_official_xanmod
+    ;;
+  33)
+    check_sys_official_xanmod_cacule
+    ;;
   9)
-    gototcpx
+    gototcp
     ;;
   10)
     gotodd
@@ -1263,6 +1230,12 @@ start_menu() {
   26)
     optimizing_ddcc
     ;;	
+  51)
+    BBR_grub
+    ;;
+  52)
+    detele_kernel_custom
+    ;;
   99)
     exit 1
     ;;
@@ -1341,6 +1314,14 @@ detele_kernel_head() {
       echo -e " 检测到 内核 数量不正确，请检查 !" && exit 1
     fi
   fi
+}
+
+detele_kernel_custom() {
+  BBR_grub
+  read -p " 查看上面内核输入需保留保留保留的内核关键词(如:5.15.0-11) :" kernel_version
+  detele_kernel
+  detele_kernel_head
+  BBR_grub
 }
 
 #更新引导
@@ -1807,6 +1788,195 @@ check_sys_Lotsever() {
   else
     echo -e "${Error} Lotsever不支持当前系统 ${release} ${version} ${bit} !" && exit 1
   fi
+}
+
+#检查官方稳定内核并安装
+check_sys_official() {
+  check_version
+  bit=$(uname -m)
+  if [[ "${release}" == "centos" ]]; then
+    if [[ ${bit} != "x86_64" ]]; then
+      echo -e "${Error} 不支持x86_64以外的系统 !" && exit 1
+    fi
+    if [[ ${version} == "7" ]]; then
+      yum install kernel kernel-headers -y --skip-broken
+    elif [[ ${version} == "8" ]]; then
+      yum install kernel kernel-core kernel-headers -y --skip-broken
+    else
+      echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+    fi
+  elif [[ "${release}" == "debian" ]]; then
+    if [[ ${bit} == "x86_64" ]]; then
+      apt-get install linux-image-amd64 linux-headers-amd64 -y
+    elif [[ ${bit} == "aarch64" ]]; then
+      apt-get install linux-image-arm64 linux-headers-arm64 -y
+    fi
+  elif [[ "${release}" == "ubuntu" ]]; then
+    apt-get install linux-image-generic linux-headers-generic -y
+  else
+    echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+  fi
+
+  BBR_grub
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
+}
+
+#检查官方最新内核并安装
+check_sys_official_bbr() {
+  check_version
+  bit=$(uname -m)
+  if [[ "${release}" == "centos" ]]; then
+    if [[ ${bit} != "x86_64" ]]; then
+      echo -e "${Error} 不支持x86_64以外的系统 !" && exit 1
+    fi
+    rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+    if [[ ${version} == "7" ]]; then
+      yum install https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm -y
+      yum --enablerepo=elrepo-kernel install kernel-ml kernel-ml-headers -y --skip-broken
+    elif [[ ${version} == "8" ]]; then
+      yum install https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm -y
+      yum --enablerepo=elrepo-kernel install kernel-ml kernel-ml-headers -y --skip-broken
+    else
+      echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+    fi
+  elif [[ "${release}" == "debian" ]]; then
+    if [[ ${version} == "9" ]]; then
+      echo "deb http://deb.debian.org/debian stretch-backports main" >/etc/apt/sources.list.d/stretch-backports.list
+      apt update
+      if [[ ${bit} == "x86_64" ]]; then
+        apt -t stretch-backports install linux-image-amd64 linux-headers-amd64 -y
+      elif [[ ${bit} == "aarch64" ]]; then
+        apt -t stretch-backports install linux-image-arm64 linux-headers-arm64 -y
+      fi
+    elif [[ ${version} == "10" ]]; then
+      echo "deb http://deb.debian.org/debian buster-backports main" >/etc/apt/sources.list.d/buster-backports.list
+      apt update
+      if [[ ${bit} == "x86_64" ]]; then
+        apt -t buster-backports install linux-image-amd64 linux-headers-amd64 -y
+      elif [[ ${bit} == "aarch64" ]]; then
+        apt -t buster-backports install linux-image-arm64 linux-headers-arm64 -y
+      fi
+    elif [[ ${version} == "11" ]]; then
+      echo "deb http://deb.debian.org/debian bullseye-backports main" >/etc/apt/sources.list.d/bullseye-backports.list
+      apt update
+      if [[ ${bit} == "x86_64" ]]; then
+        apt -t bullseye-backports install linux-image-amd64 linux-headers-amd64 -y
+      elif [[ ${bit} == "aarch64" ]]; then
+        echo -e "${Error} 暂时不支持aarch64的系统 !" && exit 1
+      fi
+    else
+      echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+    fi
+  elif [[ "${release}" == "ubuntu" ]]; then
+    echo -e "${Error} ubuntu不会写，你来吧" && exit 1
+  else
+    echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+  fi
+
+  BBR_grub
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
+}
+
+#检查官方xanmod内核并安装
+check_sys_official_xanmod() {
+  check_version
+  if [[ ${bit} != "x86_64" ]]; then
+    echo -e "${Error} 不支持x86_64以外的系统 !" && exit 1
+  fi
+  if [[ "${release}" == "debian" || "${release}" == "ubuntu" ]]; then
+    apt-get install gnupg gnupg2 gnupg1 sudo -y
+    echo 'deb http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-kernel.list
+    wget -qO - https://dl.xanmod.org/gpg.key | sudo apt-key --keyring /etc/apt/trusted.gpg.d/xanmod-kernel.gpg add -
+    apt update && apt install linux-xanmod -y
+  else
+    echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+  fi
+
+  BBR_grub
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
+}
+
+#检查官方xanmod高响应内核并安装
+check_sys_official_xanmod_cacule() {
+  check_version
+  if [[ ${bit} != "x86_64" ]]; then
+    echo -e "${Error} 不支持x86_64以外的系统 !" && exit 1
+  fi
+  if [[ "${release}" == "debian" || "${release}" == "ubuntu" ]]; then
+    apt-get install gnupg gnupg2 gnupg1 sudo -y
+    echo 'deb http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-kernel.list
+    wget -qO - https://dl.xanmod.org/gpg.key | sudo apt-key --keyring /etc/apt/trusted.gpg.d/xanmod-kernel.gpg add -
+    apt update && apt install linux-xanmod-cacule -y
+  else
+    echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+  fi
+
+  BBR_grub
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
+}
+
+#检查debian官方cloud内核并安装
+# check_sys_official_debian_cloud() {
+# check_version
+# if [[ "${release}" == "debian" ]]; then
+# if [[ ${version} == "9" ]]; then
+# echo "deb http://deb.debian.org/debian stretch-backports main" >/etc/apt/sources.list.d/stretch-backports.list
+# apt update
+# apt -t stretch-backports install linux-image-cloud-amd64 linux-headers-cloud-amd64 -y
+# elif [[ ${version} == "10" ]]; then
+# echo "deb http://deb.debian.org/debian buster-backports main" >/etc/apt/sources.list.d/buster-backports.list
+# apt update
+# apt -t buster-backports install linux-image-cloud-amd64 linux-headers-cloud-amd64 -y
+# else
+# echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+# fi
+# else
+# echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+# fi
+
+# BBR_grub
+# echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
+# }
+#检查cloud内核并安装
+# check_sys_cloud(){
+# check_version
+# if [[ "${release}" == "centos" ]]; then
+# if [[ ${version} = "7" ]]; then
+# installcloud
+# else
+# echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+# fi
+# elif [[ "${release}" == "debian" || "${release}" == "ubuntu" ]]; then
+# installcloud
+# else
+# echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+# fi
+# }
+
+#检查Zen官方内核并安装
+check_sys_official_zen() {
+  check_version
+  if [[ ${bit} != "x86_64" ]]; then
+    echo -e "${Error} 不支持x86_64以外的系统 !" && exit 1
+  fi
+  if [[ "${release}" == "debian" ]]; then
+    curl 'https://liquorix.net/add-liquorix-repo.sh' | sudo bash
+    apt-get install linux-image-liquorix-amd64 linux-headers-liquorix-amd64 -y
+  elif [[ "${release}" == "ubuntu" ]]; then
+    if ! type add-apt-repository >/dev/null 2>&1; then
+      echo 'add-apt-repository 未安装 安装中'
+      apt-get install software-properties-common -y
+    else
+      echo 'add-apt-repository 已安装，继续'
+    fi
+    add-apt-repository ppa:damentz/liquorix && sudo apt-get update
+    apt-get install linux-image-liquorix-amd64 linux-headers-liquorix-amd64 -y
+  else
+    echo -e "${Error} 不支持当前系统 ${release} ${version} ${bit} !" && exit 1
+  fi
+
+  BBR_grub
+  echo -e "${Tip} 内核安装完毕，请参考上面的信息检查是否安装成功,默认从排第一的高版本内核启动"
 }
 
 #检查系统当前状态
