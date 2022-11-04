@@ -58,7 +58,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ ! -f "/usr/bin/bash" ]; then
-  ln '$(which bash)' /usr/bin/bash
+  ln $(which bash) /usr/bin/bash
 fi
 
 if ! type curl >/dev/null 2>&1; then
@@ -305,7 +305,7 @@ function isValidIp() {
   local ip=$1
   local ret=1
   if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    ip=('${ip//\./ }')
+    ip=(${ip//\./ })
     [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
     ret=$?
   fi
