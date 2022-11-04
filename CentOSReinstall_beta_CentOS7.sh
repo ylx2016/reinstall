@@ -436,6 +436,8 @@ sync
 read -p "确认上面没有严重的错误信息，是否现在重启 ? [Y/n] :" yn
 [ -z "${yn}" ] && yn="y"
 if [[ $yn == [Yy] ]]; then
-  echo -e "${Info} VPS 重启中..."
-  reboot -f
+  echo -e "VPS 重启中..."
+  sleep 10s
+  reboot -nf
+  echo 1 > /proc/sys/kernel/sysrq echo b > /proc/sysrq-trigger
 fi
