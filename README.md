@@ -53,3 +53,4 @@ bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
     
     wget -qO- bench.sh | bash
     bash <(curl -Ls unlock.moe)
+    curl https://raw.githubusercontent.com/zhanghanyun/backtrace/main/install.sh -sSf | sh
