@@ -6,6 +6,33 @@ export PATH
 # 提醒用户更改默认密码。此处可以加强，强调安全性重要性
 echo "注意：默认密码为 blog.ylx.me，请在安装后立即更改！"
 
+#from bohanyang/debi 处理传进来的参数
+while [ $# -gt 0 ]; do
+	case $1 in
+
+	--authorized-keys-url)
+		authorized_keys_url=$2
+		shift
+		;;
+	--password)
+		password=$2
+		shift
+		;;
+	--ssh-port)
+		ssh_port=$2
+		shift
+		;;
+	--hostname)
+		change_hostname=$2
+		shift
+		;;
+	*)
+		err "Unknown option: \"$1\""
+		;;
+	esac
+	shift
+done
+
 # 检查bash是否在/usr/bin/bash，如果不在，则创建链接
 if [ ! -f "/usr/bin/bash" ]; then
 	ln $(which bash) /usr/bin/bash
@@ -290,8 +317,28 @@ EOFILE
 	echo "precedence ::ffff:0:0/96 100" >>/etc/gai.conf
 	rm -rf /etc/hostname
 	touch /etc/hostname
-	echo "ylx2016" >>/etc/hostname
-	echo "127.0.0.1 ylx2016" >>/etc/hosts
+
+	if [ -n "$change_hostname" ]; then
+		echo "d-i netcfg/hostname string $change_hostname" | $save_preseed
+		hostname=debian
+		domain=
+	else
+		hostname=$(cat /proc/sys/kernel/hostname)
+		domain=$(cat /proc/sys/kernel/domainname)
+		if [ "$domain" = '(none)' ]; then
+			domain=
+		else
+			domain=" $domain"
+		fi
+	fi
+
+	$save_preseed <<EOF
+d-i netcfg/get_hostname string $hostname
+d-i netcfg/get_domain string$domain
+EOF
+
+	#echo "ylx2016" >>/etc/hostname
+	#echo "127.0.0.1 ylx2016" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 
 }
