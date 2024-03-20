@@ -27,6 +27,36 @@ else
 	echo 'wget 已安装，继续'
 fi
 
+# 检查并安装 zip 和 tar
+if ! type zip >/dev/null 2>&1; then
+	echo 'zip 未安装，正在安装...'
+	if command -v apt-get >/dev/null 2>&1; then
+		sudo apt-get update && sudo apt-get install zip -y
+	elif command -v yum >/dev/null 2>&1; then
+		sudo yum install zip -y
+	else
+		echo '未知的包管理器，请手动安装 zip。'
+		exit 1
+	fi
+else
+	echo 'zip 已安装，继续'
+fi
+
+if ! type tar >/dev/null 2>&1; then
+	echo 'tar 未安装，正在安装...'
+	if command -v apt-get >/dev/null 2>&1; then
+		sudo apt-get update && sudo apt-get install tar -y
+	elif command -v yum >/dev/null 2>&1; then
+		sudo yum install tar -y
+	else
+		echo '未知的包管理器，请手动安装 tar。'
+		exit 1
+	fi
+else
+	echo 'tar 已安装，继续'
+fi
+
+
 # 定义变量以便于后续使用
 my_wget=$(which wget)
 my_curl=$(which curl)
