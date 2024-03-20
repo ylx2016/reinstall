@@ -215,7 +215,7 @@ INIT_OS() {
 	fi
 
 	sed -i '/Port /d' /etc/ssh/sshd_config
-	echo "Port 52890" >>/etc/ssh/sshd_config
+	#echo "Port 52890" >>/etc/ssh/sshd_config
 	sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
 	sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
 	sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
