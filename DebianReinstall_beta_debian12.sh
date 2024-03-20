@@ -56,7 +56,6 @@ else
 	echo 'tar 已安装，继续'
 fi
 
-
 # 定义变量以便于后续使用
 my_wget=$(which wget)
 my_curl=$(which curl)
@@ -90,35 +89,35 @@ ROOTDIR='/os'
 
 # 下载系统镜像的函数
 DOWNLOAD_IMG() {
-    if command -v wget >/dev/null 2>&1; then
-        mkdir -p $ROOTDIR
-        if [[ "$isCN" == '1' ]]; then
-            IMGURLstate=$(curl -k -s --head $CN_IMGURL | head -n 1)
-            BUSYBOXstate=$(curl -k -s --head $CN_BUSYBOX | head -n 1)
-        else
-            IMGURLstate=$(curl -k -s --head $IMGURL | head -n 1)
-            BUSYBOXstate=$(curl -k -s --head $BUSYBOX | head -n 1)
-        fi
-        if [[ ${IMGURLstate} != *200* ]]; then
-            echo "镜像地址检查出错，退出！"
-            exit 1
-        fi
-        if [[ ${BUSYBOXstate} != *200* && ${BUSYBOXstate} != *308* ]]; then
-            echo "BUSYBOX地址检查出错，退出！"
-            exit 1
-        fi
-        if [[ "$isCN" == '1' ]]; then
-            wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
-            wget --no-check-certificate -O "$ROOTDIR/busybox" $CN_BUSYBOX
-        else
-            wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $IMGURL
-            wget --no-check-certificate -O "$ROOTDIR/busybox" $BUSYBOX
-        fi
-        chmod +x "$ROOTDIR/busybox"
-    else
-        echo "ERROR: wget not found !"
-        exit
-    fi
+	if command -v wget >/dev/null 2>&1; then
+		mkdir -p $ROOTDIR
+		if [[ "$isCN" == '1' ]]; then
+			IMGURLstate=$(curl -k -s --head $CN_IMGURL | head -n 1)
+			BUSYBOXstate=$(curl -k -s --head $CN_BUSYBOX | head -n 1)
+		else
+			IMGURLstate=$(curl -k -s --head $IMGURL | head -n 1)
+			BUSYBOXstate=$(curl -k -s --head $BUSYBOX | head -n 1)
+		fi
+		if [[ ${IMGURLstate} != *200* ]]; then
+			echo "镜像地址检查出错，退出！"
+			exit 1
+		fi
+		if [[ ${BUSYBOXstate} != *200* && ${BUSYBOXstate} != *308* ]]; then
+			echo "BUSYBOX地址检查出错，退出！"
+			exit 1
+		fi
+		if [[ "$isCN" == '1' ]]; then
+			wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
+			wget --no-check-certificate -O "$ROOTDIR/busybox" $CN_BUSYBOX
+		else
+			wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $IMGURL
+			wget --no-check-certificate -O "$ROOTDIR/busybox" $BUSYBOX
+		fi
+		chmod +x "$ROOTDIR/busybox"
+	else
+		echo "ERROR: wget not found !"
+		exit
+	fi
 }
 
 # 删除所有旧系统文件的函数
@@ -225,6 +224,15 @@ INIT_OS() {
 	systemctl enable ssh
 
 	echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
+
+	[ -n "$password" ] && echo -e "$password\n$password" | passwd "root"
+
+	[ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
+		err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
+
+	[ -n "$authorized_keys_url" ] && mkdir -m 0700 -p /root/.ssh && wget -O /root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+	[ -n "$ssh_port" ] && sed -i "/Port\s/s/.*/Port ${ssh_port}/" /etc/ssh/sshd_config
 
 	echo "net.core.default_qdisc=fq_pie" >>/etc/sysctl.d/99-sysctl.conf
 	echo "net.ipv4.tcp_congestion_control=bbr" >>/etc/sysctl.d/99-sysctl.conf
