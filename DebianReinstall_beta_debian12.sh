@@ -340,6 +340,8 @@ EOF
 	#echo "ylx2016" >>/etc/hostname
 	#echo "127.0.0.1 ylx2016" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
+	ln -fs /usr/bin/bash /usr/bin/sh
+	timedatectl set-timezone Asia/Shanghai
 
 }
 
