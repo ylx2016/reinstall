@@ -90,48 +90,35 @@ ROOTDIR='/os'
 
 # 下载系统镜像的函数
 DOWNLOAD_IMG() {
-	if command -v wget >/dev/null 2>&1; then
-		mkdir $ROOTDIR
-		if [[ "$isCN" == '1' ]]; then
-			IMGURLstate=$(curl -s --head $CN_IMGURL | head -n 1)
-			if [[ ${IMGURLstate} == *200* ]]; then
-				echo "CN 镜像地址检查OK，继续！"
-			else
-				echo "CN 镜像地址检查出错，退出！"
-				exit 1
-			fi
-			BUSYBOXstate=$(curl -s --head $CN_BUSYBOX | head -n 1)
-			if [[ ${BUSYBOXstate} == *200* || ${BUSYBOXstate} == *308* ]]; then
-				echo "CN BUSYBOX镜像地址检查OK，继续！"
-			else
-				echo "CN BUSYBOX地址检查出错，退出！"
-				exit 1
-			fi
-			wget -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
-			wget -O "$ROOTDIR/busybox" $CN_BUSYBOX
-		else
-			IMGURLstate=$(curl -s --head $IMGURL | head -n 1)
-			if [[ ${IMGURLstate} == *200* ]]; then
-				echo "镜像地址检查OK，继续！"
-			else
-				echo "镜像地址检查出错，退出！"
-				exit 1
-			fi
-			BUSYBOXstate=$(curl -s --head $BUSYBOX | head -n 1)
-			if [[ ${BUSYBOXstate} == *200* ]]; then
-				echo "BUSYBOX地址检查OK，继续！"
-			else
-				echo "BUSYBOX地址检查出错，退出！"
-				exit 1
-			fi
-			wget -O "$ROOTDIR/os.tar.xz" $IMGURL
-			wget -O "$ROOTDIR/busybox" $BUSYBOX
-		fi
-		chmod +x "$ROOTDIR/busybox"
-	else
-		echo "ERROR: wget not found !"
-		exit
-	fi
+    if command -v wget >/dev/null 2>&1; then
+        mkdir -p $ROOTDIR
+        if [[ "$isCN" == '1' ]]; then
+            IMGURLstate=$(curl -k -s --head $CN_IMGURL | head -n 1)
+            BUSYBOXstate=$(curl -k -s --head $CN_BUSYBOX | head -n 1)
+        else
+            IMGURLstate=$(curl -k -s --head $IMGURL | head -n 1)
+            BUSYBOXstate=$(curl -k -s --head $BUSYBOX | head -n 1)
+        fi
+        if [[ ${IMGURLstate} != *200* ]]; then
+            echo "镜像地址检查出错，退出！"
+            exit 1
+        fi
+        if [[ ${BUSYBOXstate} != *200* && ${BUSYBOXstate} != *308* ]]; then
+            echo "BUSYBOX地址检查出错，退出！"
+            exit 1
+        fi
+        if [[ "$isCN" == '1' ]]; then
+            wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $CN_IMGURL
+            wget --no-check-certificate -O "$ROOTDIR/busybox" $CN_BUSYBOX
+        else
+            wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $IMGURL
+            wget --no-check-certificate -O "$ROOTDIR/busybox" $BUSYBOX
+        fi
+        chmod +x "$ROOTDIR/busybox"
+    else
+        echo "ERROR: wget not found !"
+        exit
+    fi
 }
 
 # 删除所有旧系统文件的函数
