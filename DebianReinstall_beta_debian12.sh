@@ -148,9 +148,9 @@ INIT_OS(){
 	bit=$(uname -m)
 	cd /
 	if [[ ${bit} == "x86_64" ]]; then
-		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo openssh-server
+		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils
 	elif [[ ${bit} == "aarch64" ]]; then
-		apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ifscheme ethtool guessnet fdisk coreutils curl sudo
+		apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools isc-dhcp-client ifplugd ifupdown ifmetric ethtool fdisk coreutils curl sudo
 	fi	
 	DEBIAN_FRONTEND=noninteractive apt-get install -y grub2* -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	
