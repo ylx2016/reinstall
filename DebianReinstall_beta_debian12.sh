@@ -325,19 +325,36 @@ EOFILE
 	echo "127.0.0.1 $HostName" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
-	cat >>set_timezone_once.sh <<EOFILE
+	cat >>/root/runonce.sh <<EOFILE
 #!/bin/bash
 
 # 设置时区
 timedatectl set-timezone Asia/Shanghai
 
+rm /etc/systemd/system/runonetime.service
+systemctl daemon-reload
+
 # 删除启动脚本自身
 rm "$0"
 EOFILE
 
-  chmod +x set_timezone_once.sh
-  sudo mv set_timezone_once.sh /etc/init.d/
-  sudo chmod +x /etc/init.d/set_timezone_once.sh
+	chmod +x /root/runonc.sh
+
+	cat >>/etc/systemd/system/runonetime.service <<EOFILE
+  [Unit]
+Description=OneTimeRun
+After=network.target
+
+[Service]
+User=root
+Type=oneshot
+ExecStart=/root/runonce.sh
+
+[Install]
+WantedBy=multi-user.target
+EOFILE
+
+	systemctl enable runonetime.service
 
 }
 
