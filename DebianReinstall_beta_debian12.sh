@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do
 		shift
 		;;
 	--hostname)
-		change_hostname=$2
+		tmpHostName=$2
 		shift
 		;;
 	*)
@@ -318,27 +318,11 @@ EOFILE
 	rm -rf /etc/hostname
 	touch /etc/hostname
 
-	if [ -n "$change_hostname" ]; then
-		echo "d-i netcfg/hostname string $change_hostname" | $save_preseed
-		hostname=debian
-		domain=
-	else
-		hostname=$(cat /proc/sys/kernel/hostname)
-		domain=$(cat /proc/sys/kernel/domainname)
-		if [ "$domain" = '(none)' ]; then
-			domain=
-		else
-			domain=" $domain"
-		fi
-	fi
+	[[ -n "$tmpHostName" ]] && HostName="$tmpHostName" || HostName=$(hostname)
+	[[ -z "$HostName" || "$HostName" =~ "localhost" || "$HostName" =~ "localdomain" || "$HostName" == "random" ]] && HostName="instance-$(date "+%Y%m%d")-$(date "+%H%M")"
 
-	$save_preseed <<EOF
-d-i netcfg/get_hostname string $hostname
-d-i netcfg/get_domain string$domain
-EOF
-
-	#echo "ylx2016" >>/etc/hostname
-	#echo "127.0.0.1 ylx2016" >>/etc/hosts
+	echo "$HostName" >>/etc/hostname
+	echo "127.0.0.1 $HostName" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
 	timedatectl set-timezone Asia/Shanghai
