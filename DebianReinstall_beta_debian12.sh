@@ -338,7 +338,7 @@ systemctl daemon-reload
 rm "$0"
 EOFILE
 
-	chmod +x /root/runonc.sh
+	chmod +x /root/runonce.sh
 
 	cat >>/etc/systemd/system/runonetime.service <<EOFILE
   [Unit]
