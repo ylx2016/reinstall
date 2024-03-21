@@ -325,28 +325,9 @@ EOFILE
 	echo "127.0.0.1 $HostName" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
-	cat >/root/runonce.sh <<EOFILE
-#!/bin/bash
-
-# 设置时区
-timedatectl set-timezone Asia/Shanghai
-
-#清空启动项
-> /etc/rc.local
-
-# 删除启动脚本自身
-rm "$0"
+	cat >/etc/timezone <<EOFILE
+Asia/Shanghai
 EOFILE
-
-	chmod +x /root/runonce.sh
-
-	cat >'/etc/rc.local' <<EOF
-#!/bin/bash
-
-/root/runonce.sh
-EOF
-
-	chmod +x /etc/rc.local
 
 }
 
