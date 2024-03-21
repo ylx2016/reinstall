@@ -325,14 +325,14 @@ EOFILE
 	echo "127.0.0.1 $HostName" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
-	cat >>/root/runonce.sh <<EOFILE
+	cat >/root/runonce.sh <<EOFILE
 #!/bin/bash
 
 # 设置时区
 timedatectl set-timezone Asia/Shanghai
 
-rm /etc/systemd/system/runonetime.service
-systemctl daemon-reload
+#清空启动项
+> /etc/rc.local
 
 # 删除启动脚本自身
 rm "$0"
@@ -340,21 +340,13 @@ EOFILE
 
 	chmod +x /root/runonce.sh
 
-	cat >>/etc/systemd/system/runonetime.service <<EOFILE
-  [Unit]
-Description=OneTimeRun
-After=network.target
+	cat >'/etc/rc.local' <<EOF
+#!/bin/bash
 
-[Service]
-User=root
-Type=oneshot
-ExecStart=/root/runonce.sh
+/root/runonce.sh
+EOF
 
-[Install]
-WantedBy=multi-user.target
-EOFILE
-
-	systemctl enable runonetime.service
+	chmod +x /etc/rc.local
 
 }
 
