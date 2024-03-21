@@ -325,7 +325,19 @@ EOFILE
 	echo "127.0.0.1 $HostName" >>/etc/hosts
 	$(which wget) -O /root/tcpx.sh "https://github.000060000.xyz/tcpx.sh" && $(which chmod) +x /root/tcpx.sh
 	ln -fs /usr/bin/bash /usr/bin/sh
-	timedatectl set-timezone Asia/Shanghai
+	cat >>set_timezone_once.sh <<EOFILE
+#!/bin/bash
+
+# 设置时区
+timedatectl set-timezone Asia/Shanghai
+
+# 删除启动脚本自身
+rm "$0"
+EOFILE
+
+  chmod +x set_timezone_once.sh
+  sudo mv set_timezone_once.sh /etc/init.d/
+  sudo chmod +x /etc/init.d/set_timezone_once.sh
 
 }
 
