@@ -262,7 +262,7 @@ INIT_OS() {
 
 	[ -n "$password" ] && echo -e "$password\n$password" | passwd "root"
 
-	[ -n "$authorized_keys_url" ] && mkdir -m 0700 -p /root/.ssh && wget -O /root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+	[ -n "$authorized_keys_url" ] && mkdir -m 0700 -p /root/.ssh && $(which wget) -O /root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 
 	[ -n "$ssh_port" ] && sed -i "/Port\s/s/.*/Port ${ssh_port}/" /etc/ssh/sshd_config
 
