@@ -219,9 +219,9 @@ INIT_OS() {
 		echo "安装EFI模式的GRUB（架构：${bit}）"
 		# 针对不同架构选择合适的GRUB EFI包
 		if [[ ${bit} == "x86_64" ]]; then
-			apk add install -y grub-efi
+			apk add grub-efi
 		elif [[ ${bit} == "aarch64" ]]; then
-			apk add install -y grub-efi
+			apk add grub-efi
 		else
 			echo "不支持的架构：${bit}"
 			exit 1
@@ -238,7 +238,7 @@ INIT_OS() {
 		fi
 	elif [[ ${sysbios} == "1" ]]; then
 		echo "安装BIOS模式的GRUB（设备：${device}）"
-		apk add install grub
+		apk add grub
 		grub-install --target=i386-pc ${device}
 		update-grub
 	else
