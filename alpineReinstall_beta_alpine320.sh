@@ -38,6 +38,11 @@ if [ ! -f "/usr/bin/bash" ]; then
 	ln $(which bash) /usr/bin/bash
 fi
 
+# 检查bash是否在/usr/bin/chmod，如果不在，则创建链接
+if [ ! -f "/usr/bin/chmod" ]; then
+	ln $(which bash) /usr/bin/chmod
+fi
+
 # 检查并安装curl
 if ! type curl >/dev/null 2>&1; then
 	echo 'curl 未安装，正在安装...'
