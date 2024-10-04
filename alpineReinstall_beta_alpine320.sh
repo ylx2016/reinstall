@@ -240,6 +240,9 @@ INIT_OS() {
 		echo "安装BIOS模式的GRUB（设备：${device}）"
 		apk add grub
 		grub-install --target=i386-pc ${device}
+                grub-install --target=i386-pc --directory=/usr/lib/grub/i386-pc ${device}
+		grub-install --target=i386-pc --no-floppy ${device}
+                grub-install --target=i386-pc --force --boot-directory=/boot ${device}
 		update-grub
 	else
 		echo "无法确定系统的启动模式（EFI或BIOS）。"
