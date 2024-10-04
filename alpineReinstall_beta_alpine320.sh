@@ -202,9 +202,9 @@ INIT_OS() {
 	bit=$(uname -m)
 	cd /
 	if [[ ${bit} == "x86_64" ]]; then
-		apk add openrc openssh bash util-linux linux-vanilla busybox-initscripts apk-tools libressl musl busybox
+		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl
 	elif [[ ${bit} == "aarch64" ]]; then
-		apk add openrc openssh bash util-linux linux-vanilla busybox-initscripts apk-tools libressl musl busybox
+		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl
 	fi
 	apk add grub
 
@@ -248,14 +248,11 @@ INIT_OS() {
 	sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
 	sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
 	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-	systemctl enable ssh
+	rc-update add ssh
 
 	echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
 
 	[ -n "$password" ] && echo -e "$password\n$password" | passwd "root"
-
-	[ -n "$authorized_keys_url" ] && ! download "$authorized_keys_url" /dev/null &&
-		err "Failed to download SSH authorized public keys from \"$authorized_keys_url\""
 
 	[ -n "$authorized_keys_url" ] && mkdir -m 0700 -p /root/.ssh && wget -O /root/.ssh/authorized_keys $authorized_keys_url && sed -i '/PasswordAuthentication\s/s/.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 
