@@ -140,7 +140,7 @@ DOWNLOAD_IMG() {
 			wget --no-check-certificate -O "$ROOTDIR/os.tar.xz" $IMGURL
 			wget --no-check-certificate -O "$ROOTDIR/busybox" $BUSYBOX
 		fi
-		chmod +x "$ROOTDIR/busybox"
+		$(which chmod) +x "$ROOTDIR/busybox"
 	else
 		echo "ERROR: wget not found !"
 		exit
