@@ -40,7 +40,7 @@ fi
 
 # 检查bash是否在/usr/bin/chmod，如果不在，则创建链接
 if [ ! -f "/usr/bin/chmod" ]; then
-	ln $(which bash) /usr/bin/chmod
+	ln $(which chmod) /usr/bin/chmod
 fi
 
 # 检查并安装curl
