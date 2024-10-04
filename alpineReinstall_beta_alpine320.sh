@@ -207,9 +207,9 @@ INIT_OS() {
 	bit=$(uname -m)
 	cd /
 	if [[ ${bit} == "x86_64" ]]; then
-		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl
+		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl bash zip
 	elif [[ ${bit} == "aarch64" ]]; then
-		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl
+		apk add openrc openssh bash util-linux apk-tools libressl musl busybox wget htop curl bash zip
 	fi
 	apk add grub
 
@@ -253,7 +253,7 @@ INIT_OS() {
 	sed -i 's/GSSAPIAuthentication yes/GSSAPIAuthentication no/' /etc/ssh/sshd_config
 	sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 30/' /etc/ssh/sshd_config
 	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
-	rc-update add ssh
+	rc-update add sshd
 
 	echo -e "blog.ylx.me\nblog.ylx.me" | passwd "root"
 
