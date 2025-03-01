@@ -146,8 +146,6 @@ download() {
   fi
 }
 
-ROOTDIR
-
 # 设置下载根目录
 ROOTDIR='/os'
 
@@ -233,21 +231,21 @@ INIT_OS() {
     # mv /etc/yum.repos.d/CentOS-Base.repo{,.bak}
     # curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.163.com/.help/CentOS7-Base-163.repo
     # curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/Centos-7.repo
-    yum install oracle-epel-release-el7.x86_64
+    yum install oracle-epel-release-el7.x86_64 -y
   else
     dns_name1="1.1.1.1"
     dns_name2="8.8.8.8"
     echo "nameserver $dns_name1" >/etc/resolv.conf
     echo "nameserver $dns_name2" >>/etc/resolv.conf
     # echo "nameserver 9.9.9.9" >> /etc/resolv.conf
-    yum install oracle-epel-release-el7.x86_64
+    yum install oracle-epel-release-el7.x86_64 -y
   fi
   rm -f /root/anaconda-ks.cfg
   export LC_ALL=en_US.UTF-8
   yum makecache fast
   yum install -y grub2 grub2-common grub2-tools grub2-tools-extra grub2-tools-minimal grubby util-linux dhclient openssh-server passwd wget nano kernel htop coreutils net-tools
 
-  device=$(fdisk -l | grep -o '/dev/*da' | head -1)
+  device=$(fdisk -l | grep -o /dev/*da | head -1)
   if [[ ${sysefi} == "1" ]]; then
     cd /
     yum install grub2-efi grub2-efi-modules shim -y
@@ -500,7 +498,7 @@ INIT_OS
 
 # 清理安装后的临时文件并提示重启
 rm -rf $ROOTDIR
-apt-get clean all
+yum clean all
 sync
 echo "安装完成，建议重启系统。"
 
