@@ -232,6 +232,7 @@ INIT_OS() {
     # curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.163.com/.help/CentOS7-Base-163.repo
     # curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/Centos-7.repo
     yum install oracle-epel-release-el7.x86_64 -y
+    yum install https://archives.fedoraproject.org/pub/archive/epel/7/x86_64/Packages/e/epel-release-7-14.noarch.rpm -y
   else
     dns_name1="1.1.1.1"
     dns_name2="8.8.8.8"
@@ -239,6 +240,7 @@ INIT_OS() {
     echo "nameserver $dns_name2" >>/etc/resolv.conf
     # echo "nameserver 9.9.9.9" >> /etc/resolv.conf
     yum install oracle-epel-release-el7.x86_64 -y
+    yum install https://archives.fedoraproject.org/pub/archive/epel/7/x86_64/Packages/e/epel-release-7-14.noarch.rpm -y
   fi
   rm -f /root/anaconda-ks.cfg
   export LC_ALL=en_US.UTF-8
