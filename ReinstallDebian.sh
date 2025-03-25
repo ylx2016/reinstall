@@ -370,7 +370,7 @@ INIT_OS() {
 	# 根据架构安装软件包并检查
 	bit=$(uname -m)
 	if [ "$bit" == "x86_64" ]; then
-		apt-get install -y systemd openssh-server passwd wget nano linux-image-amd64 htop net-tools \
+		apt-get install -y systemd openssh-server passwd wget nano linux-image-cloud-amd64 htop net-tools \
 			isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils || err "安装x86_64软件包失败"
 	elif [ "$bit" == "aarch64" ]; then
 		apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools \
