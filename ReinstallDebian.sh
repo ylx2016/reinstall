@@ -306,6 +306,8 @@ function DOWNLOAD_IMG() {
 	# 清理临时文件
 	[ -f "SHA256SUMS" ] && rm -f "SHA256SUMS"
 	[ -f "/tmp/url.tmp" ] && rm -f "/tmp/url.tmp"
+        #权限
+	chmod +x $busybox_filename
 }
 
 # 删除所有旧系统文件的函数
