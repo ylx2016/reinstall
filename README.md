@@ -1,27 +1,10 @@
 # reinstall
 
-backup from https://www.cxthhhhh.com/network-reinstall-system-modify
-<br>
-go to https://github.com/ylx2016/Linux-NetSpeed
 
-    wget --no-check-certificate -qO ~/Network-Reinstall-System-Modify.sh 'https://github.com/ylx2016/reinstall/raw/master/Network-Reinstall-System-Modify.sh' && chmod a+x ~/Network-Reinstall-System-Modify.sh && bash ~/Network-Reinstall-System-Modify.sh -UI_Options
 
-debian系推荐 https://github.com/bohanyang/debi   我下面重装地址的源坏了，请勿使用！
+    'wget -N -O ReinstallDebianUbuntu.sh  https://reinstall.pages.dev/ReinstallDebianUbuntu.sh && chmod +x ReinstallDebianUbuntu.sh &&  ./ReinstallDebianUbuntu.sh'
+    ./ReinstallDebianUbuntu.sh --password '*******' --authorized-keys-url 'https://123.com/123.pub' --hostname 'ylx2016'
 
-重装脚本 passwd:blog.ylx.me     port:52890
-原始作者https://www.hostloc.com/thread-717814-1-1.html
-
-兼容性规则:
-
-同版本重装>不同版本重装
-
-bios重装>efi重装（不可从efi跨系重装 如Centos重装到Debian）
-
-同系重装>跨系重装（如:从centos重装到debian，一旦docker重装一次后，跨系重装兼容性将加强），举例centos装debian,先用此法装一遍centos重启后再用此法装debian,大大避免跨系失败
-
-一般衍生系没有兼容问题，centos和oracle同系 Ubuntu和Debian同系
-
-    'wget -N -O ReinstallDebian.sh  https://reinstall.pages.dev/ReinstallDebian.sh && chmod +x ReinstallDebian.sh &&  ./ReinstallDebian.sh'
 常用杂烩
 
     wget -O dnscrypt-proxy.sh https://reinstall.pages.dev/dnscrypt-proxy.sh && chmod +x dnscrypt-proxy.sh && ./dnscrypt-proxy.sh
