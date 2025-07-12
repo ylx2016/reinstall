@@ -560,18 +560,18 @@ INIT_OS() {
     if [ "$SYSTEM" == "debian" ]; then
         if [ "$bit" == "x86_64" ]; then
             apt-get install -y systemd openssh-server passwd wget nano linux-image-cloud-amd64 htop net-tools \
-                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata || err "安装 x86_64 软件包失败"
+                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
         elif [ "$bit" == "aarch64" ]; then
             apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools \
-                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata || err "安装 aarch64 软件包失败"
+                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
         fi
     elif [ "$SYSTEM" == "ubuntu" ]; then
         if [ "$bit" == "x86_64" ]; then
             apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
-                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata || err "安装 x86_64 软件包失败"
+                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
         elif [ "$bit" == "aarch64" ]; then
             apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
-                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata || err "安装 aarch64 软件包失败"
+                isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
         fi
     else
         err "未知系统类型：$SYSTEM"
