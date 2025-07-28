@@ -584,30 +584,32 @@ INIT_OS() {
     mapfile -t potential_disks < <(lsblk -nd -o NAME,TYPE,RO,RM | awk '$2=="disk" && $3=="0" && $4=="0" {print "/dev/"$1}')
 
     if [ "${#potential_disks[@]}" -eq 0 ]; then
-        # 尝试 .bak.sh 中的旧磁盘检测逻辑作为后备
-        grub_device=$(fdisk -l 2>/dev/null | grep -Eo '/dev/[sv]d[a-z]+|/dev/nvme[0-9]+n[0-9]+|/dev/xvd[a-z]+|/dev/vd[a-z]+' | head -1)
-        if [ -z "$grub_device" ]; then
-            err "无法自动检测到任何合适的磁盘设备用于GRUB安装。请手动检查。"
-        else
-            echo "通过旧方法检测到磁盘 $grub_device 用于GRUB安装 (lsblk未找到或无结果)。"
-        fi
-    elif [ "${#potential_disks[@]}" -eq 1 ]; then
-        grub_device="${potential_disks[0]}"
-        echo "自动选择磁盘 $grub_device 用于GRUB安装。"
+    grub_device=$(fdisk -l 2>/dev/null | grep -Eo '/dev/[sv]d[a-z]+|/dev/nvme[0-9]+n[0-9]+|/dev/xvd[a-z]+|/dev/vd[a-z]+' | head -1)
+    if [ -z "$grub_device" ]; then
+        err "无法自动检测到任何合适的磁盘设备用于GRUB安装。请手动检查。"
     else
-        echo "检测到多个可能的磁盘设备:"
-        for i in "${!potential_disks[@]}"; do
-            echo "$((i + 1)). ${potential_disks[$i]}"
-        done
-        local choice_grub_disk
-        read -p "请选择GRUB安装目标设备 (输入数字): " choice_grub_disk
-        if [[ "$choice_grub_disk" =~ ^[0-9]+$ ]] && [ "$choice_grub_disk" -ge 1 ] && [ "$choice_grub_disk" -le "${#potential_disks[@]}" ]; then
-            grub_device="${potential_disks[$((choice_grub_disk - 1))]}"
-        else
-            err "无效选择，无法确定GRUB安装设备。"
-        fi
+        echo "通过旧方法检测到磁盘 $grub_device 用于GRUB安装 (lsblk未找到或无结果)。"
     fi
-    echo "GRUB将安装到: $grub_device"
+elif [ "${#potential_disks[@]}" -eq 1 ]; then
+    grub_device="${potential_disks[0]}"
+    local disk_size=$(lsblk -b -d -o SIZE "${grub_device}" | tail -n 1 | awk '{print $1/1024/1024/1024 " GB"}')
+    echo "自动选择唯一的可用磁盘 $grub_device (大小: ${disk_size}) 用于GRUB安装。"
+else
+    echo "检测到多个可能的磁盘设备，请选择要安装GRUB的【主系统引导盘】:"
+    for i in "${!potential_disks[@]}"; do
+        local disk_info=$(lsblk -b -d -o SIZE,MODEL "${potential_disks[$i]}" | tail -n 1 | awk '{model=$2; for(j=3;j<=NF;j++) model=model"_"$j; printf "大小: %.2f GB, 型号: %s\n", $1/1024/1024/1024, model}')
+        echo "$((i + 1)). ${potential_disks[$i]} (${disk_info})"
+    done
+    local choice_grub_disk
+    read -p "请输入GRUB安装目标设备的数字: " choice_grub_disk
+    if [[ "$choice_grub_disk" =~ ^[0-9]+$ ]] && [ "$choice_grub_disk" -ge 1 ] && [ "$choice_grub_disk" -le "${#potential_disks[@]}" ]; then
+        grub_device="${potential_disks[$((choice_grub_disk - 1))]}"
+    else
+        err "无效选择，无法确定GRUB安装设备。"
+    fi
+fi
+echo "GRUB将安装到: $grub_device"
+read -p "确认此磁盘选择正确吗？按 Enter 键继续，按 Ctrl+C 中止。"
 
     if [ -d "/sys/firmware/efi" ]; then
         echo "检测到EFI模式，安装GRUB-EFI..."
@@ -626,6 +628,16 @@ INIT_OS() {
         apt-get install -y "$grub_efi_pkg" || err "安装 $grub_efi_pkg 失败。"
         mkdir -p /boot/efi
         grub-install --target="$grub_target" --efi-directory=/boot/efi --bootloader-id="$SYSTEM" --recheck "$grub_device" || err "GRUB EFI 安装失败 (grub-install)。"
+        
+        # 【新增】验证EFI安装
+    local efi_file_path="/boot/efi/EFI/$SYSTEM/grubx64.efi"
+    [ "$bit" == "aarch64" ] && efi_file_path="/boot/efi/EFI/$SYSTEM/grubaa64.efi"
+    if [ ! -f "$efi_file_path" ]; then
+        err "【验证失败】GRUB EFI 安装后关键文件 $efi_file_path 未找到。脚本已中止，请勿重启！"
+    else
+        echo "【验证成功】GRUB EFI 关键文件已找到。"
+    fi
+        
         if [ "$bit" == "x86_64" ] && [ -f "/boot/efi/EFI/$SYSTEM/grubx64.efi" ]; then
             mkdir -p /boot/efi/EFI/BOOT
             cp "/boot/efi/EFI/$SYSTEM/grubx64.efi" /boot/efi/EFI/BOOT/BOOTX64.EFI
@@ -637,8 +649,16 @@ INIT_OS() {
         fi
     else
         echo "检测到BIOS模式，安装GRUB-PC到 $grub_device ..."
-        apt-get install -y grub-pc || err "安装 grub-pc 失败。"
-        grub-install --target=i386-pc --recheck "$grub_device" || err "GRUB BIOS 安装失败 (grub-install)。"
+        # 使用 --boot-directory 明确指定 /boot 路径，增加稳健性
+    grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || err "GRUB BIOS 安装失败 (grub-install)。"
+
+    # 【新增】验证BIOS安装
+    if [ ! -f "/boot/grub/i386-pc/normal.mod" ]; then
+        err "【验证失败】GRUB BIOS 安装后关键文件 /boot/grub/i386-pc/normal.mod 未找到。脚本已中止，请勿重启！"
+    else
+        echo "【验证成功】GRUB BIOS 关键文件已找到。"
+    fi
+    
     fi
     update-grub || err "更新GRUB配置失败 (update-grub)。"
 
