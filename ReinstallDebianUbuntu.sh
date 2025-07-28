@@ -297,6 +297,12 @@ download_image() {
         sleep 5
     done
 
+    # SHA256存在则不校验大小
+    if [ "$checksum_available" -eq 1 ]; then
+        size_check=0
+        echo "SHA256存在，不校验大小"
+    fi    
+
     # 验证镜像文件大小
     if [ "$size_check" -eq 1 ]; then
         echo "验证镜像文件大小..."
