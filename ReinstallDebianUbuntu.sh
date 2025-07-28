@@ -662,6 +662,12 @@ read -p "确认此磁盘选择正确吗？按 Enter 键继续，按 Ctrl+C 中�
     fi
     update-grub || err "更新GRUB配置失败 (update-grub)。"
 
+    echo "【加强措施】正在强制将所有缓存数据写入物理磁盘..."
+    # 执行多次sync，并加入短暂休眠，给存储设备控制器留下充足的写入时间
+    sync; sync; sync
+    sleep 5
+    echo "【加强措施】数据同步完成。"
+
     echo "配置SSH服务..."
     if [ ! -f "/etc/ssh/sshd_config" ]; then
         echo "警告: /etc/ssh/sshd_config 未找到。SSH可能无法正常启动。"
@@ -1103,10 +1109,18 @@ else
 fi
 
 apt-get clean all
-sync
+
+echo "【加强措施】正在强制将所有缓存数据写入物理磁盘... 2"
+    # 执行多次sync，并加入短暂休眠，给存储设备控制器留下充足的写入时间
+    sync; sync; sync
+    sleep 5
+    echo "【加强措施2】数据同步完成。"
 mount -o remount,rw /
-sleep 2
-sync
+echo "【加强措施】正在强制将所有缓存数据写入物理磁盘... 3"
+    # 执行多次sync，并加入短暂休眠，给存储设备控制器留下充足的写入时间
+    sync; sync; sync
+    sleep 5
+    echo "【加强措施3】数据同步完成。"
 mount -o remount,rw /
 echo "安装完成，建议重启系统。"
 
