@@ -158,6 +158,7 @@ get_versions() {
             ["jammy"]="Ubuntu 22.04 (Jammy Jellyfish)"
             ["noble"]="Ubuntu 24.04 (Noble Numbat)"
             ["oracular"]="Ubuntu 24.10 (Oracular Oriole)"
+            ["plucky"]="Ubuntu 25.04 (Plucky Puffin)"
         )
     fi
 
