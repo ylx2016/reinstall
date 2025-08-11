@@ -150,7 +150,7 @@ get_versions() {
             ["bookworm"]="Debian 12"
             ["bullseye"]="Debian 11"
             ["buster"]="Debian 10"
-            ["trixie"]="Debian 13 (测试版)"
+            ["trixie"]="Debian 13"
         )
     else
         version_map=(
