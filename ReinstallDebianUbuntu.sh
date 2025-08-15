@@ -523,7 +523,7 @@ init_os() {
         fi
     fi
     echo "GRUB 将安装到: $grub_device"
-    read -p "确认磁盘选择正确？按 Enter 继续，按 Ctrl+C 中止"
+    read -t 8 -p "确认磁盘选择正确？8秒后自动继续，按 Ctrl+C 中止"
 
     if [ -d "/sys/firmware/efi" ]; then
         echo "检测到 EFI 模式，安装 GRUB-EFI..."
@@ -970,9 +970,33 @@ sleep 10
 echo "数据同步完成"
 
 echo "安装完成，建议重启系统"
-read -p "确认无严重错误，是否现在重启？[Y/n]: " yn
-[ -z "$yn" ] && yn="y"
-if [[ $yn == [Yy] ]]; then
-    echo "系统正在重启..."
-    reboot -f
-fi
+echo "确认无严重错误，请选择重启方式："
+echo "1: 性能机 - 10秒后重启"
+echo "2: 一般机 - 30秒后重启"
+echo "3: 钻石机 - 2分钟后重启"
+
+read -t 10 -p "请输入选项（1/2/3，默认2）: " choice
+
+[ -z "$choice" ] && choice=2
+
+case $choice in
+    1)
+        echo "性能机模式：10秒后重启..."
+        sleep 10
+        ;;
+    2)
+        echo "一般机模式：30秒后重启..."
+        sleep 30
+        ;;
+    3)
+        echo "钻石机模式：2分钟后重启..."
+        sleep 120
+        ;;
+    *)
+        echo "无效选项，默认使用一般机模式：30秒后重启..."
+        sleep 30
+        ;;
+esac
+
+echo "系统正在重启..."
+reboot -f
