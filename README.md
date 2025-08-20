@@ -2,7 +2,7 @@
 
 
 
-    'wget -N -O ReinstallDebianUbuntu.sh  https://reinstall.pages.dev/ReinstallDebianUbuntu.sh && chmod +x ReinstallDebianUbuntu.sh &&  ./ReinstallDebianUbuntu.sh'
+    'wget -N -O ReinstallDebianUbuntu.sh https://raw.githubusercontent.com/ylx2016/reinstall/refs/heads/master/ReinstallDebianUbuntu.sh && chmod +x ReinstallDebianUbuntu.sh &&  ./ReinstallDebianUbuntu.sh'
     ./ReinstallDebianUbuntu.sh --password '*******' --authorized-keys-url 'https://123.com/123.pub' --hostname 'ylx2016'
 
 常用杂烩
