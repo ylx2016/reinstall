@@ -6,4 +6,4 @@
     然后运行./ReinstallDebianUbuntu.sh
     进阶 ./ReinstallDebianUbuntu.sh --password '*******' --authorized-keys-url 'https://123.com/123.pub' --hostname 'ylx2016'
     更多参数自己去看注释
-
+    默认密码blog.ylx.me
