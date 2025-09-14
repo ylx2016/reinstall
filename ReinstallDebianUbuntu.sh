@@ -227,27 +227,15 @@ download_image() {
     local list_url="$base_url/$version/$image_arch/cloud/?C=M;O=D"
     echo "正在获取可用镜像时间戳列表..."
     curl -s -L "$list_url" -o /tmp/url.tmp || err "无法获取时间戳列表：$list_url"
-    mapfile -t timestamp_list < <(grep -oP '2[0-9]{7}[\_]..[\:]..' /tmp/url.tmp)
+	
+    mapfile -t timestamp_list < <(grep -oE '2[0-9]{7}[\_]..[\:]..' /tmp/url.tmp | sort -r)
 
     if [ ${#timestamp_list[@]} -eq 0 ]; then
         err "未检测到任何可用时间戳目录"
     fi
 
-    echo "可用镜像时间戳："
-    for i in "${!timestamp_list[@]}"; do
-        echo "$((i + 1)). ${timestamp_list[$i]}"
-    done
-
-    while true; do
-        read -p "请选择要使用的镜像时间戳（输入数字 1-${#timestamp_list[@]}）： " choice
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#timestamp_list[@]}" ]; then
-            timestamp="${timestamp_list[$((choice - 1))]}"
-            echo "已选择时间戳：$timestamp"
-            break
-        else
-            echo "无效输入，请输入 1 到 ${#timestamp_list[@]} 之间的数字"
-        fi
-    done
+    echo "找到最新的镜像时间戳：${timestamp_list[0]}"
+    local timestamp="${timestamp_list[0]}"
 
     # 设置下载 URL
     local img_url="$base_url/$version/$image_arch/cloud/$timestamp/$file"
@@ -731,8 +719,6 @@ EOFILE
     else
         echo "警告：tcpx.sh 下载失败，跳过此步骤"
     fi
-
-    ln -fs /usr/bin/bash /usr/bin/sh
 }
 
 # 获取当前系统 IP 信息
