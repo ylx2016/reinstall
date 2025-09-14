@@ -9,6 +9,7 @@ export PATH
 DEFAULT_HOSTNAME="my-os-$(date +%Y%m%d)"
 DEFAULT_TIMEZONE="Asia/Shanghai"
 DEFAULT_REGION="global"
+DEFAULT_LOCALE="zh_CN.UTF-8" # <---- 新增这一行
 
 # 脚本变量
 authorized_keys_url=""
@@ -517,9 +518,6 @@ EOF
     #        --title="${system}-reinstalled-$(date +%Y%m%d)" \
     #        --make-default || err "grubby 添加内核引导项失败！"
 
-    # --- 系统配置 ---
-    localectl set-locale LANG=zh_CN.UTF-8
-
     echo "配置 SSH 服务..."
     sed -i -e 's/^#*Port .*/Port 22/' \
            -e 's/^#*PermitRootLogin .*/PermitRootLogin yes/' \
@@ -602,6 +600,24 @@ EOFILE
     # 配置主机名
     echo "$hostname" >/etc/hostname
     echo "127.0.0.1 $hostname" >>/etc/hosts
+
+     # --- 系统配置 ---
+    # ------------------- vvvvv 这里是新增的代码块 vvvvv -------------------
+    # 配置系统区域设置 (Locale)，避免首次启动时交互询问
+    echo "正在配置系统区域设置为 ${DEFAULT_LOCALE}..."
+    echo "LANG=${DEFAULT_LOCALE}" > /etc/locale.conf
+
+    # 为了确保中文字符等能正确生成和显示，安装对应的语言包
+    # RHEL/CentOS/Oracle 8+
+    if [ -f /etc/redhat-release ] && grep -q -E "release (8|9)" /etc/redhat-release; then
+        echo "正在为 RHEL 8/9 安装语言包..."
+        $pkgmgr install -y glibc-langpack-zh glibc-langpack-en
+    # RHEL/CentOS/Oracle 7
+    else
+        echo "正在为 RHEL 7 安装语言包..."
+        $pkgmgr install -y glibc-common
+    fi
+    # ------------------- ^^^^^ 这里是新增的代码块 ^^^^^ -------------------
     
     # 配置时区
     if [ -f "/usr/share/zoneinfo/$timezone" ]; then
