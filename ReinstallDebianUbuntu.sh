@@ -256,9 +256,14 @@ download_image() {
 
 	# [新增] 备份本地 DNS
 	# 修改为：先判断文件是否存在，再 grep
+	echo "备份DNS"
 	if [ -f "/etc/resolv.conf" ] && grep -q "127.0.0.53" /etc/resolv.conf && [ -f "/run/systemd/resolve/resolv.conf" ]; then
+		echo "备份/run/systemd/resolve/resolv.conf"
+		cat /run/systemd/resolve/resolv.conf
 		cp /run/systemd/resolve/resolv.conf "${root_dir}/resolv.conf.bak"
 	elif [ -f "/etc/resolv.conf" ]; then
+		echo "备份/etc/resolv.conf"
+		cat /etc/resolv.conf
 		cp /etc/resolv.conf "${root_dir}/resolv.conf.bak"
 	else
 		echo "警告：未找到 /etc/resolv.conf，跳过 DNS 备份"
@@ -440,6 +445,7 @@ extract_image() {
 	local tar="$busybox_path tar"
 	$xzcat "$root_dir/os.tar.xz" | $tar -x -C /
 	mv -f "$root_dir/fstab" /etc
+	cp "${root_dir}/resolv.conf.bak" /etc/resolv.conf.old
 }
 
 # [新增] 核心 DNS 生成逻辑
@@ -1041,7 +1047,7 @@ net_mode() {
 	get_recommended_dns
 	echo "------------------------------------------------"
 
-	read -t 8 -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N] (30秒后默认N): " dns_choice
+	read -t 8 -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N] (8秒后默认N): " dns_choice
 	if [ -z "$dns_choice" ]; then
 		echo -e "\n等待超时，默认使用脚本建议配置。"
 		dns_choice="n"
