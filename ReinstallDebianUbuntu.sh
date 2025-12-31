@@ -1037,17 +1037,17 @@ net_mode() {
 	echo "------------------------------------------------"
 	echo "正在检测 DNS 配置..."
 	echo "1. 原系统 DNS (/etc/resolv.conf):"
-	if [ -f "${root_dir}/resolv.conf.bak" ]; then
-		cat "${root_dir}/resolv.conf.bak"
-	else
-		echo "（无备份文件）"
+	if [ -f "/etc/resolv.conf" ] && grep -q "127.0.0.53" /etc/resolv.conf && [ -f "/run/systemd/resolve/resolv.conf" ]; then
+		cat /run/systemd/resolve/resolv.conf
+	elif [ -f "/etc/resolv.conf" ]; then
+		cat /etc/resolv.conf
 	fi
 	echo ""
 	echo "2. 脚本建议 DNS (基于当前网络环境自动生成):"
 	get_recommended_dns
 	echo "------------------------------------------------"
 
-	read -t 8 -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N] (8秒后默认N): " dns_choice
+	read -t 18 -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N] (18秒后默认N): " dns_choice
 	if [ -z "$dns_choice" ]; then
 		echo -e "\n等待超时，默认使用脚本建议配置。"
 		dns_choice="n"
