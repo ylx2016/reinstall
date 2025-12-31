@@ -407,7 +407,8 @@ init_os() {
     else
         echo "nameserver 1.1.1.1" >/etc/resolv.conf
         echo "nameserver 8.8.8.8" >>/etc/resolv.conf
-        echo "nameserver 9.9.9.9" >>/etc/resolv.conf
+        echo "nameserver 2001:4860:4860::8888" >>/etc/resolv.conf
+		echo "nameserver 2001:67c:2b0::4" >>/etc/resolv.conf
     fi
     rm -f /root/anaconda-ks.cfg
     export LC_ALL=C.UTF-8
