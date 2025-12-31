@@ -790,6 +790,8 @@ EOFILE
 	echo "配置最终系统 DNS..."
 	apply_dns_config "/etc/resolv.conf"
 
+	echo "老的DNS备份在/etc/resolv.conf.old"
+
 	echo "precedence ::ffff:0:0/96 100" >>/etc/gai.conf
 
 	# 配置主机名
