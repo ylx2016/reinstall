@@ -124,8 +124,12 @@ install_tool() {
 		echo "正在安装 $tool..."
 		if command -v apt-get >/dev/null 2>&1; then
 			apt-get update && apt-get install -y "$tool"
+		elif command -v dnf >/dev/null 2>&1; then
+			dnf install -y "$tool"
 		elif command -v yum >/dev/null 2>&1; then
 			yum install -y "$tool"
+		elif command -v apk >/dev/null 2>&1; then
+			apk add "$tool"
 		else
 			err "未知的包管理器，请手动安装 $tool"
 		fi
@@ -251,10 +255,13 @@ download_image() {
 	mkdir -p "$root_dir" || err "无法创建 $root_dir 目录"
 
 	# [新增] 备份本地 DNS
-	if grep -q "127.0.0.53" /etc/resolv.conf && [ -f "/run/systemd/resolve/resolv.conf" ]; then
+	# 修改为：先判断文件是否存在，再 grep
+	if [ -f "/etc/resolv.conf" ] && grep -q "127.0.0.53" /etc/resolv.conf && [ -f "/run/systemd/resolve/resolv.conf" ]; then
 		cp /run/systemd/resolve/resolv.conf "${root_dir}/resolv.conf.bak"
-	else
+	elif [ -f "/etc/resolv.conf" ]; then
 		cp /etc/resolv.conf "${root_dir}/resolv.conf.bak"
+	else
+		echo "警告：未找到 /etc/resolv.conf，跳过 DNS 备份"
 	fi
 
 	# 获取时间戳列表
@@ -638,7 +645,12 @@ init_os() {
 			echo "验证成功：GRUB BIOS 关键文件已找到"
 		fi
 	fi
-	update-grub || err "更新 GRUB 配置失败"
+
+	if command -v update-grub >/dev/null 2>&1; then
+		update-grub
+	else
+		grub-mkconfig -o /boot/grub/grub.cfg
+	fi || err "更新 GRUB 配置失败"
 
 	echo "正在强制将缓存数据写入磁盘..."
 	sync
@@ -707,6 +719,13 @@ init_os() {
 
 	# 网络配置
 	systemctl enable networking
+
+	# [优化] 移除 Ubuntu 默认的 netplan 配置，防止与 interfaces 冲突
+	if [ -d /etc/netplan ]; then
+		rm -f /etc/netplan/*.yaml
+		echo "已移除 Netplan 配置以确保 ifupdown 生效"
+	fi
+
 	if [ "$is_auto" == '1' ]; then
 		cat >/etc/network/interfaces <<EOFILE
 auto lo
@@ -1022,7 +1041,11 @@ net_mode() {
 	get_recommended_dns
 	echo "------------------------------------------------"
 
-	read -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N]: " dns_choice
+	read -t 8 -p "是否强制使用原系统 DNS (选项1)? 输入 y 使用原版，输入 n 或回车使用脚本建议 [y/N] (30秒后默认N): " dns_choice
+	if [ -z "$dns_choice" ]; then
+		echo -e "\n等待超时，默认使用脚本建议配置。"
+		dns_choice="n"
+	fi
 	case $dns_choice in
 	[yY][eE][sS] | [yY])
 		use_local_dns=1
