@@ -178,10 +178,11 @@ get_versions() {
 	declare -A version_map
 	if [ "$system" == "debian" ]; then
 		version_map=(
-			["bookworm"]="Debian 12"
-			["bullseye"]="Debian 11"
 			["buster"]="Debian 10"
+			["bullseye"]="Debian 11"
+			["bookworm"]="Debian 12"
 			["trixie"]="Debian 13"
+			["forky"]="Debian 14"
 		)
 	else
 		version_map=(
@@ -190,6 +191,7 @@ get_versions() {
 			["noble"]="Ubuntu 24.04 (Noble Numbat)"
 			["oracular"]="Ubuntu 24.10 (Oracular Oriole)"
 			["plucky"]="Ubuntu 25.04 (Plucky Puffin)"
+			["questing"]="Ubuntu 25.10 (Questing Quokka)"
 		)
 	fi
 
