@@ -1088,9 +1088,43 @@ net_mode() {
 	esac
 }
 
+# [新增] 自动修复 Legacy BIOS + GPT 的引导兼容性
+fix_gpt_bios_boot() {
+    if [ -d /sys/firmware/efi ]; then
+        return 0 # UEFI 模式不需要处理
+    fi
+
+    if fdisk -l /dev/vda 2>/dev/null | grep -q "Disklabel type: gpt"; then
+        if ! fdisk -l /dev/vda 2>/dev/null | grep -q "BIOS boot"; then
+            echo "检测到 GPT 磁盘缺失标准 BIOS Boot 分区，正在尝试修复分区表..."
+            
+            # 使用 fdisk 非交互式创建分区
+            # 这里的逻辑是：利用 34-2047 扇区的 1MB 剩余空间
+            (
+                echo n # 新建分区
+                echo 2 # 分区号 (vda1 已占用，我们用 2)
+                echo 34 # 起始扇区
+                echo 2047 # 结束扇区
+                echo t # 修改类型
+                echo 2 # 选中分区 2
+                echo 1 # 在 GPT 下，1 代表 BIOS boot (21686148-6449-6E6F-744E-656564454649)
+                echo w # 保存并退出
+            ) | fdisk /dev/vda
+            
+            echo "BIOS Boot 分区已创建，正在同步磁盘..."
+            sync
+            # 告诉内核分区表已变动
+            if command -v partprobe >/dev/null; then
+                partprobe /dev/vda
+            fi
+        fi
+    fi
+}
+
 # 主执行流程
 set_network
 net_mode
+fix_gpt_bios_boot
 choose_system
 get_versions
 download_image
