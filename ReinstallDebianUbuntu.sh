@@ -557,24 +557,32 @@ init_os() {
 	apt-get update || err "无法更新软件源"
 
 	# 安装软件包
-	# 开启完全无人值守模式，屏蔽所有交互弹窗
+	# 1. 强制开启无交互模式，并标记所有弹窗为“已读”
     export DEBIAN_FRONTEND=noninteractive
+    export DEBCONF_NONINTERACTIVE_SEEN=true
 
-    # 定义统一的 APT 参数：
-    # -y 自动回答 yes
-    # -qq 减少不必要的输出（静默模式，可选）
-    # Dpkg::Options 保留旧配置或使用默认配置，避免覆盖配置文件时弹窗暂停
-    APT_OPTS="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+    # 2. 自动化处理交互弹窗：预先给 tzdata (时区) 和 keyboard-configuration (键盘) 设定默认值 (UTC / US键盘)
+    # 这样在安装时系统就不会再停下来等你选择了
+    if command -v debconf-set-selections >/dev/null 2>&1; then
+        echo "tzdata tzdata/Areas select Etc" | debconf-set-selections
+        echo "tzdata tzdata/Zones/Etc select UTC" | debconf-set-selections
+        echo "keyboard-configuration keyboard-configuration/layout select English (US)" | debconf-set-selections
+        echo "keyboard-configuration keyboard-configuration/layoutcode select us" | debconf-set-selections
+    fi
 
-    # 动态检测 DHCP 客户端软件包：Debian 14 彻底移除了 isc-dhcp-client，替换为 dhcpcd-base
+    # 3. 统一的 APT 参数：自动回答 yes、静默输出、覆盖配置时不弹窗
+    APT_OPTS="-y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+
+    # 4. 修复 DHCP 客户端检测：使用 -s (模拟安装) 来判断它是否真的能被安装
     DHCP_CLIENT="isc-dhcp-client"
-    if ! apt-cache show isc-dhcp-client >/dev/null 2>&1; then
+    if ! apt-get -s install isc-dhcp-client >/dev/null 2>&1; then
         DHCP_CLIENT="dhcpcd-base"
     fi
 
-    # 定义通用的基础软件包列表
+    # 5. 提取通用软件包列表
     BASE_PACKAGES="systemd openssh-server passwd wget nano htop net-tools $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs"
 
+    # 6. 开始安装
     if [ "$system" == "debian" ]; then
         if [ "$arch" == "x86_64" ]; then
             apt-get install $APT_OPTS linux-image-cloud-amd64 $BASE_PACKAGES || err "安装 x86_64 软件包失败"
@@ -583,7 +591,6 @@ init_os() {
         fi
     elif [ "$system" == "ubuntu" ]; then
         if [ "$arch" == "x86_64" ] || [ "$arch" == "aarch64" ]; then
-            # Ubuntu 的 x86_64 和 aarch64 内核包名都是 linux-image-virtual，可以合并精简
             apt-get install $APT_OPTS linux-image-virtual $BASE_PACKAGES || err "安装 $arch 软件包失败"
         fi
     else
