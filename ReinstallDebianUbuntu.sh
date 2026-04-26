@@ -241,14 +241,16 @@ download_image() {
 	case "$arch" in
 	x86_64)
 		image_arch="amd64"
-		busybox_url="https://raw.githubusercontent.com/ylx2016/reinstall/master/busybox_1.32.1"
-		cn_busybox_url="https://raw.sevencdn.com/ylx2016/reinstall/master/busybox-x86_64"
+		# 使用 raw.githubusercontent.com 直链
+		busybox_url="https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/main/busybox-x86_64-linux-gnu"
+		# 国内使用 ghproxy 或类似加速直链代理
+		cn_busybox_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/main/busybox-x86_64-linux-gnu"
 		busybox_filename="busybox-x86_64-linux-gnu"
 		;;
 	aarch64)
 		image_arch="arm64"
-		busybox_url="https://raw.githubusercontent.com/iweizime/static-binaries/master/arm64/linux/busybox"
-		cn_busybox_url="$busybox_url"
+		busybox_url="https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/main/busybox-aarch64-linux-gnu"
+		cn_busybox_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/main/busybox-aarch64-linux-gnu"
 		busybox_filename="busybox-aarch64-linux-gnu"
 		;;
 	*) err "不支持的系统架构：$arch" ;;
@@ -558,78 +560,52 @@ init_os() {
 
 	# 安装软件包
 	# 1. 强制开启无交互模式，并标记所有弹窗为“已读”
-    export DEBIAN_FRONTEND=noninteractive
-    export DEBCONF_NONINTERACTIVE_SEEN=true
+	export DEBIAN_FRONTEND=noninteractive
+	export DEBCONF_NONINTERACTIVE_SEEN=true
 
-    # 2. 自动化处理交互弹窗：预先给 tzdata (时区) 和 keyboard-configuration (键盘) 设定默认值 (UTC / US键盘)
-    # 这样在安装时系统就不会再停下来等你选择了
-    if command -v debconf-set-selections >/dev/null 2>&1; then
-        echo "tzdata tzdata/Areas select Etc" | debconf-set-selections
-        echo "tzdata tzdata/Zones/Etc select UTC" | debconf-set-selections
-        echo "keyboard-configuration keyboard-configuration/layout select English (US)" | debconf-set-selections
-        echo "keyboard-configuration keyboard-configuration/layoutcode select us" | debconf-set-selections
-    fi
+	# 2. 自动化处理交互弹窗：预先给 tzdata (时区) 和 keyboard-configuration (键盘) 设定默认值 (UTC / US键盘)
+	# 这样在安装时系统就不会再停下来等你选择了
+	if command -v debconf-set-selections >/dev/null 2>&1; then
+		echo "tzdata tzdata/Areas select Etc" | debconf-set-selections
+		echo "tzdata tzdata/Zones/Etc select UTC" | debconf-set-selections
+		echo "keyboard-configuration keyboard-configuration/layout select English (US)" | debconf-set-selections
+		echo "keyboard-configuration keyboard-configuration/layoutcode select us" | debconf-set-selections
+	fi
 
-    # 3. 统一的 APT 参数：自动回答 yes、静默输出、覆盖配置时不弹窗
-    APT_OPTS="-y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+	# 3. 统一的 APT 参数：自动回答 yes、静默输出、覆盖配置时不弹窗
+	APT_OPTS="-y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
 
-    # 4. 修复 DHCP 客户端检测：使用 -s (模拟安装) 来判断它是否真的能被安装
-    DHCP_CLIENT="isc-dhcp-client"
-    if ! apt-get -s install isc-dhcp-client >/dev/null 2>&1; then
-        DHCP_CLIENT="dhcpcd-base"
-    fi
+	# 4. 修复 DHCP 客户端检测：使用 -s (模拟安装) 来判断它是否真的能被安装
+	DHCP_CLIENT="isc-dhcp-client"
+	if ! apt-get -s install isc-dhcp-client >/dev/null 2>&1; then
+		DHCP_CLIENT="dhcpcd-base"
+	fi
 
-    # 5. 提取通用软件包列表
-    BASE_PACKAGES="systemd openssh-server passwd wget nano htop net-tools $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs"
+	# 5. 提取通用软件包列表
+	BASE_PACKAGES="systemd openssh-server passwd wget nano htop net-tools $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs"
 
-    # 6. 开始安装
-    if [ "$system" == "debian" ]; then
-        if [ "$arch" == "x86_64" ]; then
-            apt-get install $APT_OPTS linux-image-cloud-amd64 $BASE_PACKAGES || err "安装 x86_64 软件包失败"
-        elif [ "$arch" == "aarch64" ]; then
-            apt-get install $APT_OPTS linux-image-arm64 $BASE_PACKAGES || err "安装 aarch64 软件包失败"
-        fi
-    elif [ "$system" == "ubuntu" ]; then
-        if [ "$arch" == "x86_64" ] || [ "$arch" == "aarch64" ]; then
-            apt-get install $APT_OPTS linux-image-virtual $BASE_PACKAGES || err "安装 $arch 软件包失败"
-        fi
-    else
-        err "未知系统类型：$system"
-    fi
+	# 6. 开始安装
+	if [ "$system" == "debian" ]; then
+		if [ "$arch" == "x86_64" ]; then
+			apt-get install $APT_OPTS linux-image-cloud-amd64 $BASE_PACKAGES || err "安装 x86_64 软件包失败"
+		elif [ "$arch" == "aarch64" ]; then
+			apt-get install $APT_OPTS linux-image-arm64 $BASE_PACKAGES || err "安装 aarch64 软件包失败"
+		fi
+	elif [ "$system" == "ubuntu" ]; then
+		if [ "$arch" == "x86_64" ] || [ "$arch" == "aarch64" ]; then
+			apt-get install $APT_OPTS linux-image-virtual $BASE_PACKAGES || err "安装 $arch 软件包失败"
+		fi
+	else
+		err "未知系统类型：$system"
+	fi
 
 	echo "安装 GRUB 引导加载程序..."
 	apt-get install -y grub2 -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" || err "安装 GRUB 失败"
 
-	# 检测磁盘
-	local grub_device=""
-	mapfile -t potential_disks < <(lsblk -nd -o NAME,TYPE,RO,RM | awk '$2=="disk" && $3=="0" && $4=="0" {print "/dev/"$1}')
-
-	if [ ${#potential_disks[@]} -eq 0 ]; then
-		grub_device=$(fdisk -l 2>/dev/null | grep -Eo '/dev/[sv]d[a-z]+|/dev/nvme[0-9]+n[0-9]+|/dev/xvd[a-z]+|/dev/vd[a-z]+' | head -1)
-		[ -z "$grub_device" ] && err "无法自动检测到合适的磁盘设备用于 GRUB 安装"
-		echo "检测到磁盘 $grub_device 用于 GRUB 安装"
-	elif [ ${#potential_disks[@]} -eq 1 ]; then
-		grub_device="${potential_disks[0]}"
-		local disk_size=$(lsblk -b -d -o SIZE "${grub_device}" | tail -n 1 | awk '{print $1/1024/1024/1024 " GB"}')
-		echo "自动选择磁盘 $grub_device (大小: ${disk_size}) 用于 GRUB 安装"
-	else
-		echo "检测到多个磁盘设备，请选择安装 GRUB 的主系统引导盘:"
-		for i in "${!potential_disks[@]}"; do
-			local disk_info=$(lsblk -b -d -o SIZE,MODEL "${potential_disks[$i]}" | tail -n 1 | awk '{model=$2; for(j=3;j<=NF;j++) model=model"_"$j; printf "大小: %.2f GB, 型号: %s\n", $1/1024/1024/1024, model}')
-			echo "$((i + 1)). ${potential_disks[$i]} (${disk_info})"
-		done
-		read -p "请输入 GRUB 安装目标设备的数字: " choice_grub_disk
-		if [[ "$choice_grub_disk" =~ ^[0-9]+$ ]] && [ "$choice_grub_disk" -ge 1 ] && [ "$choice_grub_disk" -le "${#potential_disks[@]}" ]; then
-			grub_device="${potential_disks[$((choice_grub_disk - 1))]}"
-		else
-			err "无效选择，无法确定 GRUB 安装设备"
-		fi
-	fi
-	echo "GRUB 将安装到: $grub_device"
-	read -t 8 -p "确认磁盘选择正确？8秒后自动继续，按 Ctrl+C 中止"
-
-	if [ -d "/sys/firmware/efi" ]; then
-		echo "检测到 EFI 模式，安装 GRUB-EFI..."
+	# 根据前期探测到的策略执行安装
+	case "$GRUB_STRATEGY" in
+	"efi")
+		echo "检测到 EFI 策略，安装 GRUB-EFI..."
 		local grub_efi_pkg=""
 		local grub_target=""
 		if [ "$arch" == "x86_64" ]; then
@@ -638,41 +614,47 @@ init_os() {
 		elif [ "$arch" == "aarch64" ]; then
 			grub_efi_pkg="grub-efi-arm64"
 			grub_target="arm64-efi"
-			apt-get install -y efibootmgr || echo "警告: efibootmgr 安装失败，但继续尝试 GRUB 安装"
+			apt-get install -y efibootmgr || echo "警告: efibootmgr 安装失败，但继续尝试"
 		else
 			err "不支持的 EFI 架构: $arch"
 		fi
+
 		apt-get install -y "$grub_efi_pkg" || err "安装 $grub_efi_pkg 失败"
 		mkdir -p /boot/efi
 		grub-install --target="$grub_target" --efi-directory=/boot/efi --bootloader-id="$system" --recheck "$grub_device" || err "GRUB EFI 安装失败"
 
+		# 复制默认引导文件
 		local efi_file_path="/boot/efi/EFI/$system/grubx64.efi"
 		[ "$arch" == "aarch64" ] && efi_file_path="/boot/efi/EFI/$system/grubaa64.efi"
-		if [ ! -f "$efi_file_path" ]; then
-			err "验证失败：GRUB EFI 关键文件 $efi_file_path 未找到，请勿重启！"
-		else
-			echo "验证成功：GRUB EFI 关键文件已找到"
-		fi
 
-		if [ "$arch" == "x86_64" ] && [ -f "/boot/efi/EFI/$system/grubx64.efi" ]; then
+		if [ -f "$efi_file_path" ]; then
 			mkdir -p /boot/efi/EFI/BOOT
-			cp "/boot/efi/EFI/$system/grubx64.efi" /boot/efi/EFI/BOOT/BOOTX64.EFI
-			echo "已复制 grubx64.efi 到 /boot/efi/EFI/BOOT/BOOTX64.EFI"
-		elif [ "$arch" == "aarch64" ] && [ -f "/boot/efi/EFI/$system/grubaa64.efi" ]; then
-			mkdir -p /boot/efi/EFI/BOOT
-			cp "/boot/efi/EFI/$system/grubaa64.efi" /boot/efi/EFI/BOOT/BOOTAA64.EFI
-			echo "已复制 grubaa64.efi 到 /boot/efi/EFI/BOOT/BOOTAA64.EFI"
-		fi
-	else
-		echo "检测到 BIOS 模式，安装 GRUB-PC 到 $grub_device ..."
-		grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || err "GRUB BIOS 安装失败"
-
-		if [ ! -f "/boot/grub/i386-pc/normal.mod" ]; then
-			err "验证失败：GRUB BIOS 关键文件 /boot/grub/i386-pc/normal.mod 未找到，请勿重启！"
+			if [ "$arch" == "x86_64" ]; then
+				cp "$efi_file_path" /boot/efi/EFI/BOOT/BOOTX64.EFI
+			elif [ "$arch" == "aarch64" ]; then
+				cp "$efi_file_path" /boot/efi/EFI/BOOT/BOOTAA64.EFI
+			fi
+			echo "EFI 引导文件备份成功"
 		else
-			echo "验证成功：GRUB BIOS 关键文件已找到"
+			err "验证失败：未找到 EFI 核心文件 $efi_file_path"
 		fi
-	fi
+		;;
+
+	"standard")
+		echo "执行标准 BIOS 模式安装..."
+		# 双重保险：正常安装失败的话，尝试强制安装自救
+		grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || {
+			echo "警告：标准安装遇到分区校验阻碍，尝试强制模式自救..."
+			grub-install --target=i386-pc --boot-directory=/boot --recheck --force "$grub_device" || err "GRUB BIOS 强制自救失败"
+		}
+		;;
+
+	"force_embed")
+		echo "执行强制嵌入模式 (适配 Legacy+GPT 无 BIOS Boot 分区)..."
+		# 带上 --force 参数强行覆盖
+		grub-install --target=i386-pc --boot-directory=/boot --recheck --force "$grub_device" || err "GRUB 强制嵌入安装失败"
+		;;
+	esac
 
 	if command -v update-grub >/dev/null 2>&1; then
 		update-grub
@@ -1088,45 +1070,83 @@ net_mode() {
 	esac
 }
 
-# [新增] 自动修复 Legacy BIOS + GPT 的引导兼容性
-fix_gpt_bios_boot() {
-    if [ -d /sys/firmware/efi ]; then
-        return 0 # UEFI 模式不需要处理
-    fi
+# [新增] 提取出来的磁盘检测函数
+detect_disk() {
+	echo "正在检测目标磁盘..."
+	mapfile -t potential_disks < <(lsblk -nd -o NAME,TYPE,RO,RM | awk '$2=="disk" && $3=="0" && $4=="0" {print "/dev/"$1}')
 
-    if fdisk -l /dev/vda 2>/dev/null | grep -q "Disklabel type: gpt"; then
-        if ! fdisk -l /dev/vda 2>/dev/null | grep -q "BIOS boot"; then
-            echo "检测到 GPT 磁盘缺失标准 BIOS Boot 分区，正在尝试修复分区表..."
-            
-            # 使用 fdisk 非交互式创建分区
-            # 这里的逻辑是：利用 34-2047 扇区的 1MB 剩余空间
-            (
-                echo n # 新建分区
-                echo 2 # 分区号 (vda1 已占用，我们用 2)
-                echo 34 # 起始扇区
-                echo 2047 # 结束扇区
-                echo t # 修改类型
-                echo 2 # 选中分区 2
-                echo 1 # 在 GPT 下，1 代表 BIOS boot (21686148-6449-6E6F-744E-656564454649)
-                echo w # 保存并退出
-            ) | fdisk /dev/vda
-            
-            echo "BIOS Boot 分区已创建，正在同步磁盘..."
-            sync
-            # 告诉内核分区表已变动
-            if command -v partprobe >/dev/null; then
-                partprobe /dev/vda
-            fi
-        fi
-    fi
+	if [ ${#potential_disks[@]} -eq 0 ]; then
+		grub_device=$(fdisk -l 2>/dev/null | grep -Eo '/dev/[sv]d[a-z]+|/dev/nvme[0-9]+n[0-9]+|/dev/xvd[a-z]+|/dev/vd[a-z]+' | head -1)
+		[ -z "$grub_device" ] && err "无法自动检测到合适的磁盘设备用于 GRUB 安装"
+		echo "检测到磁盘 $grub_device 用于 GRUB 安装"
+	elif [ ${#potential_disks[@]} -eq 1 ]; then
+		grub_device="${potential_disks[0]}"
+		local disk_size=$(lsblk -b -d -o SIZE "${grub_device}" | tail -n 1 | awk '{print $1/1024/1024/1024 " GB"}')
+		echo "自动选择磁盘 $grub_device (大小: ${disk_size}) 用于 GRUB 安装"
+	else
+		echo "检测到多个磁盘设备，请选择安装 GRUB 的主系统引导盘:"
+		for i in "${!potential_disks[@]}"; do
+			local disk_info=$(lsblk -b -d -o SIZE,MODEL "${potential_disks[$i]}" | tail -n 1 | awk '{model=$2; for(j=3;j<=NF;j++) model=model"_"$j; printf "大小: %.2f GB, 型号: %s\n", $1/1024/1024/1024, model}')
+			echo "$((i + 1)). ${potential_disks[$i]} (${disk_info})"
+		done
+		read -p "请输入 GRUB 安装目标设备的数字: " choice_grub_disk
+		if [[ "$choice_grub_disk" =~ ^[0-9]+$ ]] && [ "$choice_grub_disk" -ge 1 ] && [ "$choice_grub_disk" -le "${#potential_disks[@]}" ]; then
+			grub_device="${potential_disks[$((choice_grub_disk - 1))]}"
+		else
+			err "无效选择，无法确定 GRUB 安装设备"
+		fi
+	fi
+	echo "GRUB 目标磁盘已锁定为: $grub_device"
+}
+
+# [修改] 原来的探测函数，让它使用动态检测出的磁盘
+auto_detect_grub_mode() {
+	echo "------------------------------------------------"
+	echo "正在深度扫描磁盘与引导拓扑结构..."
+
+	local target_disk="$grub_device" # [变动点] 从写死的 /dev/vda 改为动态获取的 $grub_device
+	GRUB_STRATEGY="standard"
+
+	# 1. 检测固件模式
+	if [ -d /sys/firmware/efi ]; then
+		IS_EFI=1
+		echo "[检测结果] 固件模式: UEFI"
+	else
+		IS_EFI=0
+		echo "[检测结果] 固件模式: Legacy BIOS"
+	fi
+
+	# 2. 检测分区表类型
+	local label_type
+	label_type=$(fdisk -l "$target_disk" 2>/dev/null | grep -oP 'Disklabel type: \K\w+')
+	echo "[检测结果] 分区表类型: $label_type"
+
+	# 3. 核心逻辑判断
+	if [ "$IS_EFI" -eq 1 ]; then
+		GRUB_STRATEGY="efi"
+	elif [ "$label_type" == "gpt" ]; then
+		if fdisk -l "$target_disk" 2>/dev/null | grep -q "BIOS boot"; then
+			echo "[状态] 发现标准 BIOS Boot 分区，使用标准模式。"
+			GRUB_STRATEGY="standard"
+		else
+			echo "[警告] GPT 磁盘缺失 BIOS Boot 分区！"
+			echo "[决策] 将在安装时启用 '--force' 暴力嵌入模式（原系统兼容方案）。"
+			GRUB_STRATEGY="force_embed"
+		fi
+	else
+		echo "[状态] 标准 MBR 结构，使用标准模式。"
+		GRUB_STRATEGY="standard"
+	fi
+	echo "------------------------------------------------"
 }
 
 # 主执行流程
 set_network
 net_mode
-fix_gpt_bios_boot
 choose_system
 get_versions
+detect_disk
+auto_detect_grub_mode
 download_image
 delete_old_system
 extract_image
