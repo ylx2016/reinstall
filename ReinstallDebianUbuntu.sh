@@ -557,25 +557,31 @@ init_os() {
 	apt-get update || err "无法更新软件源"
 
 	# 安装软件包
-	if [ "$system" == "debian" ]; then
-		if [ "$arch" == "x86_64" ]; then
-			apt-get install -y systemd openssh-server passwd wget nano linux-image-cloud-amd64 htop net-tools \
-				isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
-		elif [ "$arch" == "aarch64" ]; then
-			apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools \
-				isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
-		fi
-	elif [ "$system" == "ubuntu" ]; then
-		if [ "$arch" == "x86_64" ]; then
-			apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
-				isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
-		elif [ "$arch" == "aarch64" ]; then
-			apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
-				isc-dhcp-client ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
-		fi
-	else
-		err "未知系统类型：$system"
-	fi
+	# 动态检测 DHCP 客户端软件包：Debian 14 (Forky) 彻底移除了 isc-dhcp-client，官方推荐替换为 dhcpcd-base
+    DHCP_CLIENT="isc-dhcp-client"
+    if ! apt-cache show isc-dhcp-client >/dev/null 2>&1; then
+        DHCP_CLIENT="dhcpcd-base"
+    fi
+
+    if [ "$system" == "debian" ]; then
+        if [ "$arch" == "x86_64" ]; then
+            apt-get install -y systemd openssh-server passwd wget nano linux-image-cloud-amd64 htop net-tools \
+                $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
+        elif [ "$arch" == "aarch64" ]; then
+            apt-get install -y systemd openssh-server passwd wget nano linux-image-arm64 htop net-tools \
+                $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
+        fi
+    elif [ "$system" == "ubuntu" ]; then
+        if [ "$arch" == "x86_64" ]; then
+            apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
+                $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 x86_64 软件包失败"
+        elif [ "$arch" == "aarch64" ]; then
+            apt-get install -y systemd openssh-server passwd wget nano linux-image-virtual htop net-tools \
+                $DHCP_CLIENT ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs || err "安装 aarch64 软件包失败"
+        fi
+    else
+        err "未知系统类型：$system"
+    fi
 
 	echo "安装 GRUB 引导加载程序..."
 	apt-get install -y grub2 -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" || err "安装 GRUB 失败"
