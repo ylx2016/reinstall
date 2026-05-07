@@ -225,6 +225,7 @@ get_versions() {
 			["oracular"]="Ubuntu 24.10 (Oracular Oriole)"
 			["plucky"]="Ubuntu 25.04 (Plucky Puffin)"
 			["questing"]="Ubuntu 25.10 (Questing Quokka)"
+			["resolute"]="Ubuntu 26.04 (Resolute Raccoon)"
 		)
 	fi
 
