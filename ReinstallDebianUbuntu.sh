@@ -85,7 +85,6 @@ use_local_dns=0
 
 grub_device=""
 GRUB_STRATEGY="standard"
-GRUB_BIOS_GAP=0
 IS_EFI=0
 
 busybox_filename=""
@@ -1833,12 +1832,76 @@ grub_default_kver() {
 
 # $1=内核版本目录名 $2=模块名。模块可以是 .ko/.ko.xz/.ko.zst，也可以编译进内核。
 kernel_has_module() {
-	local kb="/lib/modules/$1"
+	# 空版本会让 kb 退化成 /lib/modules/，find 会递归扫到任意内核的模块 → 假通过
+	[ -n "$1" ] || return 1
+	local kb="/lib/modules/$1" m="$2"
 	[ -d "$kb" ] || return 1
-	if [ -f "$kb/modules.builtin" ] && grep -qxE "/${2}\.ko(\.(xz|zst|gz))?" "$kb/modules.builtin" 2>/dev/null; then
-		return 0
+	# sysfs 里的驱动名用连字符（virtio-pci、xen-blkfront），内核模块文件名用下划线
+	# （virtio_pci.ko）。不转换就会把"编成模块的驱动"误判成缺失。
+	local m_us="${m//-/_}" cand=""
+	for cand in "$m" "$m_us"; do
+		[ -n "$cand" ] || continue
+		# 注意不能加 -x：modules.builtin 的行是 "kernel/fs/ext4/ext4.ko"，
+		# 整行锚定会永远匹配不到，内置模块就被误判成缺失（实测 Debian 14 cloud 内核的 ext4）
+		if [ -f "$kb/modules.builtin" ] &&
+			grep -qE "(^|/)${cand}\.ko(\.(xz|zst|gz))?$" "$kb/modules.builtin" 2>/dev/null; then
+			return 0
+		fi
+		pipe_grep_q "." find "$kb" -name "${cand}.ko*" -print -quit 2>/dev/null && return 0
+	done
+	return 1
+}
+
+# 把驱动链里的名字换成模块文件名（连字符→下划线），供 initramfs 检查用
+module_file_name() {
+	local m="$1"
+	# 别名：sd 是 SCSI 磁盘类设备，没有名为 sd 的模块
+	case "$m" in sd) m="sd_mod" ;; esac
+	echo "${m//-/_}"
+}
+
+# 让"能用的内核"真正成为默认引导项：把缺驱动的内核包卸掉，update-grub 后
+# GRUB_DEFAULT=0 自然落到剩下的那个。比改 GRUB_DEFAULT 字符串可靠——
+# 菜单标题随发行版/语言变化，猜标题很容易猜错，卸掉坏内核没有歧义。
+drop_kernels_lacking_modules() {
+	local kb kver bad="" good=0
+	for kb in /lib/modules/*/; do
+		[ -d "$kb" ] || continue
+		kver="$(basename "$kb")"
+		local d="" lack=0
+		for d in "$@"; do
+			kernel_has_module "$kver" "$d" || {
+				lack=1
+				break
+			}
+		done
+		if [ "$lack" -eq 1 ]; then bad="$bad $kver"; else good=$((good + 1)); fi
+	done
+	[ -n "$bad" ] || return 0
+	# 一个能用的内核都没有时绝不能卸：卸完就没有内核可引导了
+	if [ "$good" -eq 0 ]; then
+		echo "警告：所有已安装内核都缺根磁盘驱动（$bad），不做任何移除"
+		return 1
 	fi
-	pipe_grep_q "." find "$kb" -name "${2}.ko*" -print -quit 2>/dev/null
+	command -v apt-get >/dev/null 2>&1 || {
+		echo "警告：以下内核缺少根磁盘驱动，但系统不是 apt 系，无法自动移除：$bad"
+		return 1
+	}
+	local -a pkgs=()
+	local name=""
+	for kver in $bad; do
+		while IFS= read -r name; do
+			[ -n "$name" ] && pkgs+=("$name")
+		done < <(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -F -- "$kver" || true)
+	done
+	[ "${#pkgs[@]}" -gt 0 ] || return 1
+	echo "移除缺少根磁盘驱动的内核包：${pkgs[*]}"
+	DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq "${pkgs[@]}" >/dev/null 2>&1 || {
+		echo "警告：移除内核包失败，需要手工处理"
+		return 1
+	}
+	command -v update-grub >/dev/null 2>&1 && update-grub >/dev/null 2>&1
+	return 0
 }
 
 verify_root_driver_installed() {
@@ -1865,14 +1928,10 @@ verify_root_driver_installed() {
 	local -a mods=()
 	local d=""
 	for d in $drivers; do
-		case "$d" in
-		"") ;;
-		sd) mods+=("sd_mod") ;;
-		*) mods+=("$d") ;;
-		esac
+		[ -n "$d" ] && mods+=("$(module_file_name "$d")")
 	done
 	# sysfs 链读不到（容器/受限环境）时至少查直接驱动
-	[ "${#mods[@]}" -gt 0 ] || [ -z "$drv" ] || mods+=("$drv")
+	[ "${#mods[@]}" -gt 0 ] || [ -z "$drv" ] || mods+=("$(module_file_name "$drv")")
 	# 根文件系统自己的模块同样必须在：ext4 编成模块的镜像很常见
 	case "$fstype" in
 	ext4 | xfs | btrfs | f2fs | zfs) mods+=("$fstype") ;;
@@ -1938,9 +1997,10 @@ verify_root_driver_installed() {
 				update-grub >/dev/null 2>&1 || true
 			fi
 			kver="$(grub_default_kver 2>/dev/null)" || kver=""
-			local ok=1
-			[ -d "/lib/modules/$kver" ] || ok=0
-			if [ "$ok" -eq 1 ]; then
+			# 空 kver 时 [ -d /lib/modules/ ] 为真 → 必须显式先判空，否则假通过
+			local ok=0
+			if [ -n "$kver" ] && [ -d "/lib/modules/$kver" ]; then
+				ok=1
 				for d in "${mods[@]}"; do
 					kernel_has_module "$kver" "$d" || ok=0
 				done
@@ -1948,6 +2008,24 @@ verify_root_driver_installed() {
 			if [ "$ok" -eq 1 ]; then
 				echo "存储驱动自检通过（补装后）：默认内核 $kver 含 ${mods[*]}"
 				missing_in_default=0
+			else
+				# 补装成功但默认引导项还是原来那个坏内核（GRUB_DEFAULT=0 指向
+				# 镜像自带的首个内核）。把缺驱动的内核包卸掉，剩下的那个自动成为默认。
+				drop_kernels_lacking_modules "${mods[@]}" || true
+				kver="$(grub_default_kver 2>/dev/null)" || kver=""
+				ok=0
+				if [ -n "$kver" ] && [ -d "/lib/modules/$kver" ]; then
+					ok=1
+					for d in "${mods[@]}"; do
+						kernel_has_module "$kver" "$d" || ok=0
+					done
+				fi
+				if [ "$ok" -eq 1 ]; then
+					echo "存储驱动自检通过（移除坏内核后）：默认内核 $kver 含 ${mods[*]}"
+					missing_in_default=0
+				else
+					echo "警告：移除坏内核后默认内核仍未解析到含驱动的内核（当前：${kver:-无}）"
+				fi
 			fi
 		fi
 	fi
@@ -3107,9 +3185,6 @@ install_grub() {
 	standard)
 		echo "执行标准 BIOS 模式安装..."
 		[ "$arch" = "x86_64" ] || err "BIOS/legacy 引导仅支持 x86_64"
-		if [ "${GRUB_BIOS_GAP:-0}" -eq 1 ]; then
-			echo "[提示] Legacy+GPT 无 BIOS Boot 分区：core.img 写入磁盘开头 ${grub_device} 的空洞，不修改分区表"
-		fi
 		grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || {
 			# 自救路径写的是和 force_embed 完全相同的扇区，确认等级必须一致：
 			# 否则「第一次失败」就能让操作者绕过 force_embed 的确认闸
@@ -4071,6 +4146,46 @@ detect_existing_bootloader() {
 	return 0
 }
 
+# 在磁盘开头空洞（GPT 主表之后、第一个分区之前）补一个 BIOS Boot 分区。
+# grub 在 GPT 上只认 ef02 分区，不认空洞，所以这一步是把"有空间"变成"装得上"。
+# 只新增一个分区，不动任何已有分区、不移动数据。成功返回 0。
+ensure_bios_boot_partition() {
+	local disk="$1" gap="$2" start=34 end sgdisk_bin=""
+
+	case "${gap:-0}" in '' | *[!0-9]*) return 1 ;; esac
+	[ "$gap" -ge 1024 ] || return 1
+	end=$((34 + gap - 1))
+
+	# 优先 sgdisk（GPT 原生，只改目标条目）；没有就用 fdisk/parted 提示手工处理
+	if command -v sgdisk >/dev/null 2>&1; then
+		sgdisk_bin="sgdisk"
+	elif command -v apt-get >/dev/null 2>&1; then
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -qq gdisk >/dev/null 2>&1 &&
+			command -v sgdisk >/dev/null 2>&1 && sgdisk_bin="sgdisk"
+	elif command -v apk >/dev/null 2>&1; then
+		apk add --no-cache gdisk >/dev/null 2>&1 && command -v sgdisk >/dev/null 2>&1 && sgdisk_bin="sgdisk"
+	fi
+	if [ -z "$sgdisk_bin" ]; then
+		echo "[警告] 没有 sgdisk，无法自动创建 BIOS Boot 分区"
+		return 1
+	fi
+
+	echo "[操作] 在 $disk 的扇区 $start..$end 建立 BIOS Boot 分区（ef02，约 $((gap / 2)) KiB）"
+	# --new=0 让 sgdisk 自己挑第一个空闲号；typecode/name 一起写，避免残留旧类型
+	if ! "$sgdisk_bin" --new=0:"$start":"$end" --typecode=0:ef02 --change-name=0:"BIOS boot" "$disk" >/dev/null 2>&1; then
+		echo "[警告] sgdisk 创建 BIOS Boot 分区失败"
+		return 1
+	fi
+	# 让内核重读分区表（设备忙时会失败，不影响 grub 直接读磁盘，只提示）
+	partprobe "$disk" >/dev/null 2>&1 || blockdev --rereadpt "$disk" >/dev/null 2>&1 || true
+	if fdisk -l "$disk" 2>/dev/null | grep -q "BIOS boot"; then
+		echo "[操作] BIOS Boot 分区已建立"
+		return 0
+	fi
+	echo "[警告] 分区表里没有出现 BIOS boot 条目"
+	return 1
+}
+
 auto_detect_grub_mode() {
 	echo "------------------------------------------------"
 	echo "正在深度扫描磁盘与引导拓扑结构..."
@@ -4135,20 +4250,18 @@ auto_detect_grub_mode() {
 			echo "[状态] 发现标准 BIOS Boot 分区，使用标准模式。"
 			GRUB_STRATEGY="standard"
 		else
-			# 没有 ef02 分区不等于装不上：GPT 主分区表只占 1-33 扇区，磁盘开头到
-			# 第一个分区之间（通常 1MiB）的空洞足够放 core.img，grub-install 会自己
-			# 嵌进去，完全不碰分区表。只有空洞不够时才需要 --force（blocklists）。
+			# 关键事实：grub 在 GPT 上**不使用**磁盘开头空洞（那是 msdos 标签的行为），
+			# 只认 BIOS Boot 分区（ef02）。所以空洞够大时不是"直接嵌入"，而是先在
+			# 空洞里补一个 ef02 分区，再走标准安装 —— 不动任何已有分区、不移动数据。
 			local gap_sectors
 			gap_sectors="$(gpt_boot_gap_sectors "$target_disk")"
-			# core.img（i386-pc）实际只有几十 KiB；512 KiB（1024 扇区）已经非常宽裕。
-			# 注意标准的 1MiB 对齐布局是「第一个分区从 2048 扇区开始、减去 GPT 占的
-			# 34 扇区 = 2014 扇区空洞」，所以门槛绝不能写成 2048，否则最常见的布局
-			# 反而会被判成"没有空洞"。
-			if [ "${gap_sectors:--1}" -ge 1024 ]; then
-				echo "[状态] Legacy + GPT 且无 BIOS Boot 分区，但磁盘开头有 ${gap_sectors} 扇区空洞（约 $((gap_sectors / 2)) KiB）"
-				echo "[决策] 把 core.img 嵌入该空洞（标准做法，不改分区表）"
+			# 门槛用 1024 扇区（512 KiB）：ef02 分区实际只放 core.img（几十 KiB）。
+			# 注意标准 1MiB 对齐布局是「第一个分区起于 2048 扇区，减去 GPT 占的 34
+			# 扇区 = 2014 扇区空洞」，门槛写成 2048 会把最常见的布局判成"没空间"。
+			if [ "${gap_sectors:--1}" -ge 1024 ] &&
+				ensure_bios_boot_partition "$target_disk" "$gap_sectors"; then
+				echo "[决策] 已在磁盘开头空洞建立 BIOS Boot 分区，使用标准模式（不改动任何已有分区）"
 				GRUB_STRATEGY="standard"
-				GRUB_BIOS_GAP=1
 			elif [ "${EXISTING_BOOT_HINT:-unknown}" = "grub" ] &&
 				[ "${EXISTING_MBR_CODE:-0}" -eq 1 ] && [ "${force_embed_optin:-0}" -ne 1 ]; then
 				# 空洞不够时唯一可行的路就是 blocklists。而这台机器现在就是
