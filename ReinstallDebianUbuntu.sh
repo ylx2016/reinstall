@@ -1533,12 +1533,20 @@ preflight_image() {
 # 上复现到的失败，Alpine 测试机上没有 journald 所以一直没暴露。
 stop_disk_writers() {
 	command -v systemctl >/dev/null 2>&1 || return 0
-	local unit
+	local unit t
 	for unit in systemd-journald.service systemd-journald.socket \
 		systemd-journald-dev-log.socket systemd-journald-audit.socket \
-		rsyslog.service syslog-ng.service cron.service crond.service atd.service; do
+		rsyslog.service syslog-ng.service cron.service crond.service atd.service \
+		systemd-tmpfiles-clean.service systemd-tmpfiles-clean.timer; do
 		systemctl stop "$unit" >/dev/null 2>&1 || true
 	done
+	# 定时器会在删除过程中重建 /var/lib/systemd/timers/stamp-*（dpkg-db-backup、
+	# apt-daily、logrotate 都是 daily 定时器），/var 于是永远删不干净、复查必然失败。
+	while IFS= read -r t; do
+		[ -n "$t" ] || continue
+		systemctl stop "$t" >/dev/null 2>&1 || true
+	done < <(systemctl list-units --type=timer --state=active --no-legend --no-pager 2>/dev/null | awk '{print $1}')
+	systemctl daemon-reload >/dev/null 2>&1 || true
 	# systemd 的日志服务是 socket 激活的，socket 没停干净会被一次写入重新拉起来
 	pkill -TERM -x systemd-journal 2>/dev/null || true
 	pkill -TERM -x rsyslogd 2>/dev/null || true
@@ -1583,6 +1591,9 @@ wipe_leftovers() {
 # /var 下的 cron 与 systemd/dpkg 状态单列，其余 /var 视为数据/日志，只告警。
 wipe_leftover_is_sensitive() {
 	case "$1" in
+	# 定时器时间戳是零字节 stamp，systemd 运行中随时重建，与旧系统状态无关；
+	# 算作敏感会让抹盘必然失败，而它带不来任何持久化内容。
+	/var/lib/systemd/timers | /var/lib/systemd/timers/*) return 1 ;;
 	/etc | /etc/* | /root | /root/* | /home | /home/* | /bin | /bin/* | /sbin | /sbin/* \
 		| /lib | /lib/* | /lib32 | /lib32/* | /lib64 | /lib64/* | /libx32 | /libx32/* \
 		| /usr | /usr/* | /boot | /boot/* | /opt | /opt/* | /srv | /srv/* \
