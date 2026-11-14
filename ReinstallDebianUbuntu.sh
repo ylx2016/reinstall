@@ -2613,6 +2613,23 @@ write_sshd_dropin() {
 		echo "UseDNS no"
 	} >"$dropin"
 	chmod 0644 "$dropin"
+
+	# 新版 OpenSSH 会删掉旧选项（Debian 14 的 sshd 直接拒绝 GSSAPIAuthentication），
+	# 一个不认识的选项就让整个 sshd 起不来、连接全部失败。写完后用本机 sshd 验证，
+	# 只把报 Unsupported option 的那几行删掉再验，直到干净。
+	# sshd -T 在特权分离目录缺失时直接 255 退出且不报 Unsupported option，
+	# 会让我们以为"配置没问题"而漏掉不兼容的选项
+	mkdir -p /run/sshd 2>/dev/null || true
+	local tries=0 out="" bad=""
+	while [ "$tries" -lt 8 ]; do
+		tries=$((tries + 1))
+		sshd -T -f /etc/ssh/sshd_config >/dev/null 2>&1 && break
+		out="$(sshd -T -f /etc/ssh/sshd_config 2>&1 || true)"
+		bad="$(printf '%s\n' "$out" | sed -n 's/.*Unsupported option \([A-Za-z0-9]*\).*/\1/p' | head -n 1)"
+		[ -n "$bad" ] || break
+		echo "提示：本机 sshd 不支持 $bad，已从 00-reinstall.conf 移除"
+		sed -i "/^${bad}[[:space:]]/d" "$dropin"
+	done
 }
 
 configure_ssh() {
