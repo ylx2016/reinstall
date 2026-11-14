@@ -4012,7 +4012,10 @@ detect_disk() {
 # 嵌进这个空洞——只要够大就完全不需要 --force，也不动分区表。
 # 第二个参数只给单元测试用（假 sysfs 根）。
 gpt_boot_gap_sectors() {
-	local disk="$1" sysroot="${2:-/sys/block}" p start min_start=""
+	# $1 允许是 /dev/vda 或 vda：调用方传的是 grub_device（带 /dev/ 前缀），
+	# 直接拼 sysfs 路径会变成 /sys/block//dev/vda/... 而永远匹配不到 → 误判 0。
+	local disk="${1##*/}" sysroot="${2:-/sys/block}" p start min_start=""
+	case "$disk" in '' | */*) echo -1; return 0 ;; esac
 	for p in "$sysroot/$disk/$disk"*; do
 		[ -r "$p/start" ] || continue
 		start="$(cat "$p/start" 2>/dev/null)" || continue
@@ -4021,12 +4024,51 @@ gpt_boot_gap_sectors() {
 			min_start="$start"
 		fi
 	done
-	[ -n "$min_start" ] || { echo 0; return 0; }
+	# -1 表示读不到任何分区起始扇区（读不到 ≠ 空洞为 0，不能当成"装不上"）
+	[ -n "$min_start" ] || { echo -1; return 0; }
 	if [ "$min_start" -gt 34 ]; then
 		echo $((min_start - 34))
 	else
 		echo 0
 	fi
+}
+
+# 读现有系统的引导方式：MBR 前 440 字节的引导代码 + 字符串特征。
+# 目的不是猜，而是拿到证据：这台机器现在到底靠什么启动，抹盘后就再也读不到了。
+# 结果写进 EXISTING_MBR_CODE（1=有引导代码）、EXISTING_BOOT_HINT（grub/syslinux/unknown）。
+detect_existing_bootloader() {
+	local disk="$1" tmp raw hint="unknown"
+
+	EXISTING_MBR_CODE=0
+	EXISTING_BOOT_HINT="unknown"
+	[ -n "$disk" ] && [ -b "$disk" ] || return 0
+	tmp="$(mktemp "${work_dir:-/tmp}/mbr.XXXXXX" 2>/dev/null)" || return 0
+	if ! dd if="$disk" of="$tmp" bs=512 count=1 2>/dev/null; then
+		rm -f "$tmp"
+		echo "[检测] 无法读取 $disk 的引导扇区（无权限或设备不可读）"
+		return 0
+	fi
+	raw="$(dd if="$tmp" bs=1 count=440 2>/dev/null | tr -d '\000' | tr -c '[:print:]\n' ' ')"
+	# 全零 = 没有引导代码（走固件/其他介质引导），任何非空都算有
+	[ -n "$(printf '%s' "$raw" | tr -d '[:space:]')" ] && EXISTING_MBR_CODE=1
+
+	if printf '%s' "$raw" | grep -Eqi 'GRUB|stage1|Geom|Read Error'; then
+		hint="grub"
+	elif printf '%s' "$raw" | grep -Eqi 'SYSLINUX|LILO|EXTLINUX'; then
+		hint="syslinux-or-lilo"
+	fi
+	EXISTING_BOOT_HINT="$hint"
+	rm -f "$tmp"
+
+	case "$hint" in
+	grub) echo "[检测] 现有引导：MBR 里有 GRUB 引导代码" ;;
+	syslinux-or-lilo) echo "[检测] 现有引导：MBR 里是 SYSLINUX/LILO，不是 GRUB" ;;
+	*) echo "[检测] 现有引导：MBR 引导代码特征无法识别（可能由固件/网卡/其他介质引导）" ;;
+	esac
+	if [ "$EXISTING_MBR_CODE" -eq 1 ]; then
+		echo "[检测] MBR 引导代码区非空，说明当前系统确实从这块盘引导"
+	fi
+	return 0
 }
 
 auto_detect_grub_mode() {
@@ -4081,6 +4123,11 @@ auto_detect_grub_mode() {
 	fi
 	echo "[检测结果] 分区表类型: $label_type"
 
+	# 抹盘前把这台机器现在怎么引导的记下来：抹完就再也读不到了，
+	# 而「现有系统能启动」本身就是最强的可行性证据（比如 GPT+Legacy 无空洞
+	# 却开得起来，说明它本来就用 blocklists）。
+	detect_existing_bootloader "$target_disk"
+
 	if [ "$IS_EFI" -eq 1 ]; then
 		GRUB_STRATEGY="efi"
 	elif [ "$label_type" = "gpt" ]; then
@@ -4093,16 +4140,38 @@ auto_detect_grub_mode() {
 			# 嵌进去，完全不碰分区表。只有空洞不够时才需要 --force（blocklists）。
 			local gap_sectors
 			gap_sectors="$(gpt_boot_gap_sectors "$target_disk")"
-			if [ "${gap_sectors:-0}" -ge 2048 ]; then
-				echo "[状态] Legacy + GPT 且无 BIOS Boot 分区，但磁盘开头有 ${gap_sectors} 扇区空洞（约 $((gap_sectors / 2048)) MiB）"
+			# core.img（i386-pc）实际只有几十 KiB；512 KiB（1024 扇区）已经非常宽裕。
+			# 注意标准的 1MiB 对齐布局是「第一个分区从 2048 扇区开始、减去 GPT 占的
+			# 34 扇区 = 2014 扇区空洞」，所以门槛绝不能写成 2048，否则最常见的布局
+			# 反而会被判成"没有空洞"。
+			if [ "${gap_sectors:--1}" -ge 1024 ]; then
+				echo "[状态] Legacy + GPT 且无 BIOS Boot 分区，但磁盘开头有 ${gap_sectors} 扇区空洞（约 $((gap_sectors / 2)) KiB）"
 				echo "[决策] 把 core.img 嵌入该空洞（标准做法，不改分区表）"
 				GRUB_STRATEGY="standard"
 				GRUB_BIOS_GAP=1
+			elif [ "${EXISTING_BOOT_HINT:-unknown}" = "grub" ] &&
+				[ "${EXISTING_MBR_CODE:-0}" -eq 1 ] && [ "${force_embed_optin:-0}" -ne 1 ]; then
+				# 空洞不够时唯一可行的路就是 blocklists。而这台机器现在就是
+				# 「GPT + Legacy + 无 ef02 + 无空洞」却开得起来 —— 证据表明它本来
+				# 就靠 blocklists 引导，复刻同样的方式风险可控，不必再要求 --force-embed。
+				echo "[状态] 开头空洞不足以嵌入 core.img，但 MBR 里有 GRUB 引导代码 —— 现有系统本来就是 blocklists 引导"
+				echo "[决策] 复刻现有方式：用 blocklists 强制嵌入 core.img（grub-install --force）"
+				GRUB_STRATEGY="force_embed"
 			elif [ "${force_embed_optin:-0}" -ne 1 ]; then
-				# 空洞不够时 grub-install 只能 --force 用 blocklists 硬塞，会写到 GPT
-				# 保护扇区附近，有破坏分区表的可能。这不是"正常路径"，不能让 --yes
-				# 顺带批准，必须在抹盘前显式加 --force-embed 才会进入。
-				err "Legacy BIOS + GPT 磁盘 $target_disk 没有 BIOS Boot 分区（类型 ef02，1MiB），且磁盘开头空洞只有 ${gap_sectors:-0} 扇区（<2048，约 1MiB），不足以嵌入 core.img。请先在分区表中创建 BIOS Boot 分区后重试；确认要冒险使用强制嵌入模式（blocklists），请显式加 --force-embed。已中止（现有系统未改动）"
+				# 空洞不够且无法证明现有系统用 GRUB blocklists：只能让操作者自己决定。
+				# 交互时问一次；--yes 批处理仍需显式 --force-embed（否则无人复核）。
+				if [ "${gap_sectors:--1}" -lt 0 ]; then
+					echo "[警告] 无法从 sysfs 读出 ${target_disk} 的分区起始扇区，无法判断磁盘开头空洞大小"
+				else
+					echo "[警告] Legacy + GPT 磁盘 ${target_disk} 无 BIOS Boot 分区，且开头空洞只有 ${gap_sectors} 扇区（约 $((gap_sectors / 2)) KiB，<512 KiB），不足以正常嵌入 core.img"
+				fi
+				if [ "${assume_yes:-0}" -eq 0 ] && [ -t 0 ] &&
+					ask_confirm "只能使用 blocklists 强制嵌入（文件块被移动后可能引导失败），继续？"; then
+					echo "[决策] 使用 force_embed 模式（blocklists）"
+					GRUB_STRATEGY="force_embed"
+				else
+					err "已中止（现有系统未改动）。要使用 blocklists 强制嵌入，请显式加 --force-embed 重跑；或先在分区表中创建 BIOS Boot 分区（ef02，1MiB）"
+				fi
 			else
 				echo "[警告] GPT 磁盘缺失 BIOS Boot 分区，且已显式指定 --force-embed"
 				# 这一步在抹盘之前：现在问，操作者还能 Ctrl-C 全身而退；
