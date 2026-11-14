@@ -85,6 +85,7 @@ use_local_dns=0
 
 grub_device=""
 GRUB_STRATEGY="standard"
+GRUB_BIOS_GAP=0
 IS_EFI=0
 
 busybox_filename=""
@@ -3106,6 +3107,9 @@ install_grub() {
 	standard)
 		echo "执行标准 BIOS 模式安装..."
 		[ "$arch" = "x86_64" ] || err "BIOS/legacy 引导仅支持 x86_64"
+		if [ "${GRUB_BIOS_GAP:-0}" -eq 1 ]; then
+			echo "[提示] Legacy+GPT 无 BIOS Boot 分区：core.img 写入磁盘开头 ${grub_device} 的空洞，不修改分区表"
+		fi
 		grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || {
 			# 自救路径写的是和 force_embed 完全相同的扇区，确认等级必须一致：
 			# 否则「第一次失败」就能让操作者绕过 force_embed 的确认闸
@@ -4003,6 +4007,28 @@ detect_disk() {
 	fi
 }
 
+# GPT 磁盘开头（MBR 1 扇区 + GPT 主表 1-33 扇区）到第一个分区之间的空洞，
+# 单位 512 字节扇区。grub-install 在 GPT 上找不到 BIOS Boot 分区时会把 core.img
+# 嵌进这个空洞——只要够大就完全不需要 --force，也不动分区表。
+# 第二个参数只给单元测试用（假 sysfs 根）。
+gpt_boot_gap_sectors() {
+	local disk="$1" sysroot="${2:-/sys/block}" p start min_start=""
+	for p in "$sysroot/$disk/$disk"*; do
+		[ -r "$p/start" ] || continue
+		start="$(cat "$p/start" 2>/dev/null)" || continue
+		case "$start" in '' | *[!0-9]*) continue ;; esac
+		if [ -z "$min_start" ] || [ "$start" -lt "$min_start" ]; then
+			min_start="$start"
+		fi
+	done
+	[ -n "$min_start" ] || { echo 0; return 0; }
+	if [ "$min_start" -gt 34 ]; then
+		echo $((min_start - 34))
+	else
+		echo 0
+	fi
+}
+
 auto_detect_grub_mode() {
 	echo "------------------------------------------------"
 	echo "正在深度扫描磁盘与引导拓扑结构..."
@@ -4061,20 +4087,32 @@ auto_detect_grub_mode() {
 		if pipe_grep_q "BIOS boot" fdisk -l "$target_disk"; then
 			echo "[状态] 发现标准 BIOS Boot 分区，使用标准模式。"
 			GRUB_STRATEGY="standard"
-		elif [ "${force_embed_optin:-0}" -ne 1 ]; then
-			# 缺 BIOS Boot 分区时 grub-install 只能 --force 硬塞，会写到 GPT 保护扇区
-			# 附近，有破坏分区表的可能。这不是"正常路径"，不能让 --yes 顺带批准，
-			# 必须在抹盘前显式加 --force-embed 才会进入。
-			err "Legacy BIOS + GPT 磁盘 $target_disk 没有 BIOS Boot 分区（类型 ef02，1MiB）：grub-install 无法写入引导代码，强行嵌入还可能破坏分区表。请先在分区表中创建 BIOS Boot 分区后重试；确认要冒险使用强制嵌入模式，请显式加 --force-embed。已中止（现有系统未改动）"
 		else
-			echo "[警告] GPT 磁盘缺失 BIOS Boot 分区，且已显式指定 --force-embed"
-			# 这一步在抹盘之前：现在问，操作者还能 Ctrl-C 全身而退；
-			# 等 install_grub 里再问，旧系统已经没了，拒绝也等于把机器留在不可引导状态。
-			ask_confirm "强制嵌入会写入 GPT 保护扇区附近并可能破坏分区表，确认使用该模式？" ||
-				err "用户取消强制嵌入模式（尚未抹盘，系统未改动）"
-			# 确认之后必须把策略真正落到变量上：只问不赋值会让抹盘前的确认形同虚设
-			# （策略仍是 standard，抹盘后 grub-install 失败，再走 --force 自救）
-			GRUB_STRATEGY="force_embed"
+			# 没有 ef02 分区不等于装不上：GPT 主分区表只占 1-33 扇区，磁盘开头到
+			# 第一个分区之间（通常 1MiB）的空洞足够放 core.img，grub-install 会自己
+			# 嵌进去，完全不碰分区表。只有空洞不够时才需要 --force（blocklists）。
+			local gap_sectors
+			gap_sectors="$(gpt_boot_gap_sectors "$target_disk")"
+			if [ "${gap_sectors:-0}" -ge 2048 ]; then
+				echo "[状态] Legacy + GPT 且无 BIOS Boot 分区，但磁盘开头有 ${gap_sectors} 扇区空洞（约 $((gap_sectors / 2048)) MiB）"
+				echo "[决策] 把 core.img 嵌入该空洞（标准做法，不改分区表）"
+				GRUB_STRATEGY="standard"
+				GRUB_BIOS_GAP=1
+			elif [ "${force_embed_optin:-0}" -ne 1 ]; then
+				# 空洞不够时 grub-install 只能 --force 用 blocklists 硬塞，会写到 GPT
+				# 保护扇区附近，有破坏分区表的可能。这不是"正常路径"，不能让 --yes
+				# 顺带批准，必须在抹盘前显式加 --force-embed 才会进入。
+				err "Legacy BIOS + GPT 磁盘 $target_disk 没有 BIOS Boot 分区（类型 ef02，1MiB），且磁盘开头空洞只有 ${gap_sectors:-0} 扇区（<2048，约 1MiB），不足以嵌入 core.img。请先在分区表中创建 BIOS Boot 分区后重试；确认要冒险使用强制嵌入模式（blocklists），请显式加 --force-embed。已中止（现有系统未改动）"
+			else
+				echo "[警告] GPT 磁盘缺失 BIOS Boot 分区，且已显式指定 --force-embed"
+				# 这一步在抹盘之前：现在问，操作者还能 Ctrl-C 全身而退；
+				# 等 install_grub 里再问，旧系统已经没了，拒绝也等于把机器留在不可引导状态。
+				ask_confirm "强制嵌入会写入 GPT 保护扇区附近并可能破坏分区表，确认使用该模式？" ||
+					err "用户取消强制嵌入模式（尚未抹盘，系统未改动）"
+				# 确认之后必须把策略真正落到变量上：只问不赋值会让抹盘前的确认形同虚设
+				# （策略仍是 standard，抹盘后 grub-install 失败，再走 --force 自救）
+				GRUB_STRATEGY="force_embed"
+			fi
 		fi
 	else
 		echo "[状态] 分区表类型为 $label_type，使用标准模式。"
