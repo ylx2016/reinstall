@@ -205,6 +205,9 @@ usage() {
   --print-image-pins        打印内置镜像指纹表后退出，便于维护
   --resume-partial          上次在抹盘阶段中断（存在 /os/WIPE_STARTED）时继续运行。
                             默认拒绝，因为此时系统可能已半新半旧
+  环境变量 ALLOW_DIRTY_WIPE=1
+                            抹盘后 /etc /usr /root 等安全敏感位置仍有残留时强制继续。
+                            默认中止：这些位置的旧文件会把持久化带进新系统
   --dry-run                 只做检测/下载/预检并打印将要执行的动作，然后退出。
                             不会抹盘，也不进入任何破坏性步骤
   --no-offline-stage        不预下载新系统必需软件包（内核/initramfs-tools/DHCP
@@ -409,7 +412,17 @@ require_root() {
 }
 
 cleanup_work_dir() {
-	[ -n "$work_dir" ] && [ -d "$work_dir" ] && rm -rf "$work_dir"
+	# 抹盘后 /bin/rm 已经不存在，直接调用会刷 "No such file or directory"。
+	# 那时 work_dir 在 /tmp（tmpfs），重启即消失，不必强删。
+	if [ "${wipe_phase:-0}" -eq 1 ]; then
+		work_dir=""
+		return 0
+	fi
+	if [ -n "${busybox_path:-}" ] && [ -x "$busybox_path" ]; then
+		[ -n "$work_dir" ] && [ -d "$work_dir" ] && "$busybox_path" rm -rf "$work_dir" 2>/dev/null
+	elif [ -n "$work_dir" ] && [ -d "$work_dir" ] && command -v rm >/dev/null 2>&1; then
+		rm -rf "$work_dir"
+	fi
 	work_dir=""
 }
 
@@ -697,6 +710,56 @@ dns_probe() {
 	fi
 	command -v nslookup >/dev/null 2>&1 && nslookup "$host" >/dev/null 2>&1 && return 0
 	return 1
+}
+
+# 抹盘后如果主板 RTC 不准（VPS 常见：时区被当成本地时间、或长期离线跑偏），
+# 新系统里还没有任何时间同步服务，apt 会直接拒绝整个索引：
+#   E: Release file for ... is not valid yet (invalid for another 7h ...)
+# 这不是网络问题，装不上下文就装出一台没内核的机器。用镜像站响应头里的 Date
+# 校正系统时间（偏差 >5 分钟才动），不改时区。
+# 用任意 URL 的响应头 Date 校正系统时间；RTC 偏差过大时连 HTTPS 证书都验不过，
+# 所以下载阶段之前就要先校正一次。
+sync_clock_from_url() {
+	local url="$1" hdr epoch now skew
+	[ -n "$url" ] || return 0
+	# 不用 head 截断：pipefail 下 head 提前退出会让整条管道带 SIGPIPE 状态
+	if command -v curl >/dev/null 2>&1; then
+		hdr="$(curl -sI --max-time 15 "${CURL_TLS_OPTS[@]}" "$url" 2>/dev/null |
+			sed -n 's/^[Dd]ate:[[:space:]]*//p' | tr -d '\r')"
+	elif command -v wget >/dev/null 2>&1; then
+		hdr="$(wget -S --spider --timeout=15 "$url" 2>&1 |
+			sed -n 's/^[[:space:]]*[Dd]ate:[[:space:]]*//p' | tr -d '\r')"
+	fi
+	hdr="${hdr%%$'\n'*}"
+	[ -n "$hdr" ] || return 0
+	# 旧系统可能是 Alpine（busybox date 不认 -d "RFC1123" 的默认格式），两路都试
+	epoch="$(date -d "$hdr" +%s 2>/dev/null)"
+	case "$epoch" in
+	'' | *[!0-9]*)
+		command -v busybox >/dev/null 2>&1 &&
+			epoch="$(busybox date -D '%a, %d %b %Y %H:%M:%S %Z' -d "$hdr" +%s 2>/dev/null)"
+		;;
+	esac
+	case "$epoch" in '' | *[!0-9]*) return 0 ;; esac
+	now="$(date +%s)"
+	skew=$((epoch - now))
+	[ "${skew#-}" -lt 300 ] && return 0
+	echo "警告：系统时间与镜像服务器相差 $((skew / 60)) 分钟（$(date -u '+%FT%TZ') → $(date -u -d "@$epoch" '+%FT%TZ')），按镜像时间校正"
+	if date -u -s "@$epoch" >/dev/null 2>&1; then
+		echo "系统时间已校正"
+	elif command -v busybox >/dev/null 2>&1 && busybox date -u -s "@$epoch" >/dev/null 2>&1; then
+		echo "系统时间已校正（busybox）"
+	else
+		echo "警告：无法校正系统时间，apt 可能因 Release 文件来自未来而失败"
+	fi
+	return 0
+}
+
+# 按 APT 镜像的 Release 文件校时（此时已知系统版本）
+sync_clock_from_mirror() {
+	local mirror="$1"
+	[ -n "$mirror" ] || return 0
+	sync_clock_from_url "$mirror/dists/$selected_version/Release"
 }
 
 apply_dns_config() {
@@ -1464,6 +1527,73 @@ preflight_image() {
 	fi
 }
 
+# 抹盘前停掉还在往磁盘写的服务。journald/rsyslog 会在 find -delete 期间不断
+# 重建 /var/log/journal 下的文件，与删除竞态：文件刚删掉又被写出来，最后
+# /var 目录非空、rmdir 失败，于是抹完盘才报「仍残留 /var」——这是真实云主机
+# 上复现到的失败，Alpine 测试机上没有 journald 所以一直没暴露。
+stop_disk_writers() {
+	command -v systemctl >/dev/null 2>&1 || return 0
+	local unit
+	for unit in systemd-journald.service systemd-journald.socket \
+		systemd-journald-dev-log.socket systemd-journald-audit.socket \
+		rsyslog.service syslog-ng.service cron.service crond.service atd.service; do
+		systemctl stop "$unit" >/dev/null 2>&1 || true
+	done
+	# systemd 的日志服务是 socket 激活的，socket 没停干净会被一次写入重新拉起来
+	pkill -TERM -x systemd-journal 2>/dev/null || true
+	pkill -TERM -x rsyslogd 2>/dev/null || true
+	return 0
+}
+
+# 返回第一个未被排除且仍存在的路径（空 = 已清空）。必须用 busybox find：
+# /usr/bin/find 在删除过程中已被删掉。排除表达式每次重建，保证与 -delete 一致。
+wipe_leftovers() {
+	local -a expr=()
+	# 生产者用 printf '%s\0'，这里必须用 -d '' 同分隔符；否则整个表达式会被当成
+	# 一个巨大的路径 pattern，find 不报错却什么都匹配不到 —— 复查会假绿。
+	mapfile -d '' -t expr < <(wipe_exclude_expr)
+	[ "${#expr[@]}" -gt 0 ] || {
+		echo "内部错误：无法构造 find 排除表达式，拒绝继续" >&2
+		return 1
+	}
+	local errf="${work_dir:-/tmp}/wipe-verify.err" n=0
+	# 不复用 2>/dev/null：表达式坏了必须看得见，不能表现成「没有残留」
+	"$busybox_path" find / -xdev -mindepth 1 \( "${expr[@]}" \) -print 2>"$errf" |
+		while IFS= read -r p; do
+			local is_ancestor=0 keep_path
+			for keep_path in "$root_dir" "$work_dir"; do
+				[ -n "$keep_path" ] || continue
+				case "$keep_path" in "$p"/*) is_ancestor=1 ;; esac
+			done
+			[ "$is_ancestor" -eq 1 ] && continue
+			printf '%s\n' "$p"
+			n=$((n + 1))
+			[ "$n" -ge 50 ] && {
+				printf '%s\n' "  ...（仅列出前 50 条）"
+				break
+			}
+		done
+	if [ -s "$errf" ]; then
+		echo "警告：残留复查 find 报错（结果可能不可信）：$(head -c 400 "$errf")" >&2
+	fi
+	return 0
+}
+
+# 残留位置是否安全敏感：这些地方留下旧文件 = 攻击者的持久化随新系统活下来。
+# /var 下的 cron 与 systemd/dpkg 状态单列，其余 /var 视为数据/日志，只告警。
+wipe_leftover_is_sensitive() {
+	case "$1" in
+	/etc | /etc/* | /root | /root/* | /home | /home/* | /bin | /bin/* | /sbin | /sbin/* \
+		| /lib | /lib/* | /lib32 | /lib32/* | /lib64 | /lib64/* | /libx32 | /libx32/* \
+		| /usr | /usr/* | /boot | /boot/* | /opt | /opt/* | /srv | /srv/* \
+		| /var/spool/cron | /var/spool/cron/* | /var/lib/systemd | /var/lib/systemd/* \
+		| /var/lib/dpkg | /var/lib/dpkg/*)
+		return 0
+		;;
+	esac
+	return 1
+}
+
 # 拼出 find 的排除条件（! -path A -a ! -path B ...），两个调用点共用，避免规则漂移。
 # work_dir 在 /tmp 下、抹盘后还要继续使用，必须排除，否则后续步骤在空目录上失败。
 # 抹盘前把新系统必需软件包预下载到保留目录（尽力而为，失败只告警）。
@@ -1495,9 +1625,14 @@ stage_offline_packages() {
 	local mirror="" suite="$selected_version"
 	mirror="${apt_mirror_url:-$(get_default_apt_mirror)}"
 	local stage="${work_dir}/aptstage" dir="${root_dir}/offline-debs"
+	# var/lib/dpkg 必须一起建：下面 `: >status` 需要该目录存在，缺了会在
+	# 「确认抹盘」之后才报 No such file or directory（真实 VPS 上踩过）
 	mkdir -p "$stage/etc/apt/apt.conf.d" "$stage/var/lib/apt/lists/partial" \
-		"$stage/var/cache/apt/archives/partial" "$dir" || return 0
-	: >"$stage/var/lib/dpkg/status"
+		"$stage/var/cache/apt/archives/partial" "$stage/var/lib/dpkg" "$dir" || return 0
+	: >"$stage/var/lib/dpkg/status" || {
+		echo "警告：无法创建临时 dpkg 状态文件，跳过离线包预下载"
+		return 0
+	}
 
 	if [ "$system" = "debian" ]; then
 		{
@@ -1528,6 +1663,8 @@ stage_offline_packages() {
 	)
 
 	echo "预下载新系统必需软件包（$kernel_pkg、initramfs-tools、DHCP 客户端等）到 ${dir} ..."
+	# 旧机的时钟同样可能偏（RTC 不准），这里不校正的话索引会整批被判成"来自未来"
+	sync_clock_from_mirror "$mirror"
 	if ! apt-get "${aptroot[@]}" update >"${work_dir}/aptstage.log" 2>&1; then
 		echo "警告：预下载阶段无法读取 $suite 的软件源索引，已跳过（后续仍会联网安装，不影响流程）"
 		return 0
@@ -2059,34 +2196,53 @@ delete_old_system() {
 	# 子树在新系统里存活），所以目录和文件都要清不可变位。
 	# 注意这里是 AND 语义（\( expr \) -exec），不是 -o：写成 -o 会变成
 	# "排除表达式为假才执行"，正好作用在要保留的路径上（旧版本的真 bug）
+	# 附件属性 +a（append-only）同样会阻止 unlink，只清 -i 不够
 	if command -v chattr >/dev/null 2>&1; then
-		find / -xdev \( "${expr[@]}" \) -exec chattr -i {} + 2>/dev/null || true
+		find / -xdev \( "${expr[@]}" \) -exec chattr -i -a {} + 2>/dev/null || true
 	fi
 
 	# -xdev：不跨越挂载点，避免连带抹掉独立 /boot/efi、数据盘或 NFS
-	# 不再用 || true：删除失败被吞掉等于把「半新半旧」的系统交给下一步解压
-	find / -xdev \( "${expr[@]}" \) -delete 2>/dev/null
+	# 先停写盘服务再删，避免 journald 竞态重建 /var/log/journal
+	stop_disk_writers
+	local attempt
+	for attempt in 1 2 3; do
+		find / -xdev \( "${expr[@]}" \) -delete 2>/dev/null
+		sync 2>/dev/null || true
+		[ -z "$(wipe_leftovers)" ] && break
+		[ "$attempt" -lt 3 ] && echo "删除后仍有残留，第 $attempt 轮清理（可能是写盘进程竞态），重试..."
+	done
 
 	# 复查：expr 为真 = 未被排除的路径。祖先目录（如 /tmp，因为 $work_dir 在其下）
-	# 会残留且删不掉，属于正常现象，过滤掉；其余任何残留都必须中止。
-	# 必须用 busybox find：此时 /usr/bin/find 已经被上一步删掉了，重新 exec 会失败。
-	# （同一进程内的 find 因为映像已加载还能跑完，但新起的进程不行）
-	local leftover=""
-	leftover="$(
-		"$busybox_path" find / -xdev -mindepth 1 \( "${expr[@]}" \) -print 2>/dev/null | while IFS= read -r p; do
-			local is_ancestor=0
-			local keep_path
-			for keep_path in "$root_dir" "$work_dir"; do
-				[ -n "$keep_path" ] || continue
-				case "$keep_path" in "$p"/*) is_ancestor=1 ;; esac
-			done
-			[ "$is_ancestor" -eq 1 ] && continue
-			printf '%s\n' "$p"
-			break
+	# 会残留且删不掉，属于正常现象，过滤掉。
+	#
+	# 残留按位置分流，避免「静默把旧文件带进新系统」：
+	#  - 安全敏感位置（/etc /usr /root /home /bin /sbin /lib* /boot /opt /srv，以及
+	#    cron 与 systemd/dpkg 状态目录）残留 = 攻击者的持久化（ld.so.preload、cron、
+	#    SUID、systemd unit、authorized_keys）会跟着活下来 → 默认硬失败，必须显式
+	#    ALLOW_DIRTY_WIPE=1 才继续；
+	#  - 其它位置（/var/log 之类）只告警继续：抹盘已经开始，err 退出只会留下一台
+	#    删空一半又没有引导的机器（真实 VPS 上就是这么卡死的）。
+	local -a leftovers=()
+	mapfile -t leftovers < <(wipe_leftovers)
+	local p
+	local -a sensitive=()
+	if [ "${#leftovers[@]}" -gt 0 ]; then
+		echo "警告：删除后仍有 ${#leftovers[@]} 处残留，逐个检查："
+		for p in "${leftovers[@]}"; do
+			if [ -d "$p" ] && [ ! -L "$p" ] &&
+				[ -z "$("$busybox_path" find "$p" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+				echo "  $p（空目录，无害）"
+			elif wipe_leftover_is_sensitive "$p"; then
+				echo "  $p（安全敏感位置！$("$busybox_path" ls -ld "$p" 2>&1)）"
+				sensitive+=("$p")
+			else
+				echo "  $p（非安全敏感位置，$("$busybox_path" ls -ld "$p" 2>&1)）"
+			fi
 		done
-	)"
-	if [ -n "$leftover" ]; then
-		err "删除旧系统未完成，仍残留：$leftover（系统处于部分删除状态，请进救援系统处理）"
+		if [ "${#sensitive[@]}" -gt 0 ]; then
+			[ "${ALLOW_DIRTY_WIPE:-0}" -eq 1 ] || err "删除旧系统未完成，这些安全敏感位置仍有旧文件：${sensitive[*]}。旧 /etc /usr /root 里的 ld.so.preload、cron、SUID、systemd unit、authorized_keys 会被新系统继承，等于把持久化带过去。默认中止（盘已抹空，进救援系统用 ALLOW_DIRTY_WIPE=1 重跑 --resume-partial 可强制继续）。"
+			echo "警告：ALLOW_DIRTY_WIPE=1，忽略上述敏感残留继续；重装完成后务必人工清理这些路径。"
+		fi
 	fi
 
 	echo "旧系统文件已清空"
@@ -3134,11 +3290,17 @@ init_os() {
 	write_apt_sources "$final_apt_mirror_url" "$selected_version"
 
 	echo "APT 软件源配置完成"
+	# 时钟不准时 apt 会把所有索引判成"来自未来"，先按镜像时间校正再来一次
+	sync_clock_from_mirror "$final_apt_mirror_url"
 	# 抹盘后取不到索引是最危险的：此时旧系统已经没了，装不上内核就等于装出
 	# 一台开不了机的机器。所以先尽力用预下载的 .deb 把内核+initramfs 弄上去，
 	# 真弄不成才按致命错误停下。
 	if ! apt-get update; then
-		offline_package_rescue || err "无法更新软件源"
+		# RTC 偏移时第一次 update 会整批失败；再校一次时钟后重试一次
+		sync_clock_from_mirror "$final_apt_mirror_url"
+		if ! apt-get update; then
+			offline_package_rescue || err "无法更新软件源"
+		fi
 	fi
 
 	install_base_packages
@@ -4177,6 +4339,9 @@ main() {
 	set_network
 	net_mode
 	choose_system
+	# RTC 偏差大时 HTTPS 证书都验不过，连镜像列表都取不到；下载前先校一次时间。
+	# 用镜像站首页的 Date 头，不依赖具体版本目录是否可访问。
+	sync_clock_from_url "$base_url/" || true
 	get_versions
 	detect_disk
 	auto_detect_grub_mode
