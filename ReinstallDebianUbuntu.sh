@@ -1592,6 +1592,27 @@ wipe_leftovers() {
 
 # 残留位置是否安全敏感：这些地方留下旧文件 = 攻击者的持久化随新系统活下来。
 # /var 下的 cron 与 systemd/dpkg 状态单列，其余 /var 视为数据/日志，只告警。
+# 目录里除了「保持不变的挂载点」以外什么都没有 = 无害（典型是 /boot 下只挂着
+# /boot/efi）。不能用 find -xdev -print -quit 判断：-xdev 只阻止下降，挂载点
+# 目录本身照样会被打印，于是 /boot 永远被判成「有残留」。
+wipe_leftover_is_mount_only_dir() {
+	local d="$1" child mnt is_mnt=0
+	[ -d "$d" ] && [ ! -L "$d" ] || return 1
+	[ -n "${busybox_path:-}" ] || return 1
+	while IFS= read -r child; do
+		[ -n "$child" ] || continue
+		is_mnt=0
+		for mnt in "${WIPE_MOUNTS[@]}"; do
+			if [ "$child" = "$mnt" ]; then
+				is_mnt=1
+				break
+			fi
+		done
+		[ "$is_mnt" -eq 1 ] || return 1
+	done < <("$busybox_path" find "$d" -mindepth 1 -maxdepth 1 2>/dev/null)
+	return 0
+}
+
 wipe_leftover_is_sensitive() {
 	case "$1" in
 	# 只放行 systemd 会自己重建的零字节 stamp：目录本身与 stamp-* 文件。
@@ -1688,8 +1709,29 @@ stage_offline_packages() {
 		echo "警告：预下载阶段无法读取 $suite 的软件源索引，已跳过（后续仍会联网安装，不影响流程）"
 		return 0
 	fi
-	if ! apt-get "${aptroot[@]}" -d --yes --no-install-recommends install \
-		"$kernel_pkg" initramfs-tools isc-dhcp-client ifupdown openssh-server \
+	# 不同发行版/版本的包名不一样（Debian 14 已移除 isc-dhcp-client），
+	# 逐个做 -s 模拟探测，缺的跳过，别让一个包把整批预下载拖垮。
+	local -a want=("$kernel_pkg" initramfs-tools ifupdown openssh-server)
+	local cand pkg
+	for cand in isc-dhcp-client dhcpcd-base udhcpc; do
+		if apt-get "${aptroot[@]}" -s install "$cand" >/dev/null 2>&1; then
+			want+=("$cand")
+			break
+		fi
+	done
+	local -a got=()
+	for pkg in "${want[@]}"; do
+		if apt-get "${aptroot[@]}" -s install "$pkg" >/dev/null 2>&1; then
+			got+=("$pkg")
+		else
+			echo "提示：$pkg 在 $suite 里不可用，跳过预下载"
+		fi
+	done
+	if [ "${#got[@]}" -eq 0 ]; then
+		echo "警告：$suite 源里没有可预下载的软件包，已跳过（后续联网安装）"
+		return 0
+	fi
+	if ! apt-get "${aptroot[@]}" -d --yes --no-install-recommends install "${got[@]}" \
 		>>"${work_dir}/aptstage.log" 2>&1; then
 		echo "警告：预下载软件包失败，已跳过（不影响后续联网安装）。apt 报错末尾："
 		tail -n 20 "${work_dir}/aptstage.log" 2>/dev/null | sed 's/^/  | /' || true
@@ -2343,8 +2385,10 @@ delete_old_system() {
 		echo "警告：删除后仍有 ${#leftovers[@]} 处残留，逐个检查："
 		for p in "${leftovers[@]}"; do
 			if [ -d "$p" ] && [ ! -L "$p" ] &&
-				[ -z "$("$busybox_path" find "$p" -xdev -mindepth 1 -print -quit 2>/dev/null)" ]; then
-				echo "  $p（本文件系统内已空，无害）"
+				[ -z "$("$busybox_path" find "$p" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+				echo "  $p（空目录，无害）"
+			elif wipe_leftover_is_mount_only_dir "$p"; then
+				echo "  $p（只剩下保持不变的挂载点，无害）"
 			elif wipe_leftover_is_sensitive "$p"; then
 				echo "  $p（安全敏感位置！$("$busybox_path" ls -ld "$p" 2>&1)）"
 				sensitive+=("$p")
@@ -3012,10 +3056,17 @@ install_base_packages() {
 	fi
 
 	local APT_OPTS="-y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
-	local DHCP_CLIENT="isc-dhcp-client"
-
-	if ! apt-get -s install isc-dhcp-client >/dev/null 2>&1; then
-		DHCP_CLIENT="dhcpcd-base"
+	# Debian 14 起 isc-dhcp-client 已从仓库移除。ifupdown 的 dhcp 方法会按
+	# dhclient -> udhcpc -> dhcpcd 的顺序去找，装上任意一个都能拿到地址。
+	local DHCP_CLIENT="" cand
+	for cand in isc-dhcp-client dhcpcd-base udhcpc; do
+		if apt-get -s install "$cand" >/dev/null 2>&1; then
+			DHCP_CLIENT="$cand"
+			break
+		fi
+	done
+	if [ -z "$DHCP_CLIENT" ]; then
+		echo "警告：找不到可用的 DHCP 客户端包，DHCP 网络可能无法自动配置"
 	fi
 
 	local BASE_PACKAGES="systemd openssh-server passwd wget nano htop net-tools ${DHCP_CLIENT} ifupdown ifmetric ethtool fdisk coreutils curl sudo util-linux gnupg apt-utils tzdata xfsprogs"
