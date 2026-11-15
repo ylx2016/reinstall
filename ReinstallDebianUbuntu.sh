@@ -122,7 +122,11 @@ dry_run=0
 offline_stage=1
 # 1 = /os 是本次运行新建的，dry-run 退出时应整体删除；0 = 原本就存在，只删下载产物
 root_dir_created=0
-download_tcpx=0
+# 1 = 把 tcpx 装到新系统的 /usr/local/bin/tcpx（只装不执行）。默认开启：
+# 装完敲 tcpx 就该能用；要跳过加 --no-tcpx。内容取自 GitHub 可变分支、默认无校验和，
+# 因此默认只打印实际 SHA256 供事后核对；要强校验就加 --tcpx-sha256 / TCPX_SHA256。
+download_tcpx=1
+tcpx_sha256="${TCPX_SHA256:-}"
 password_file=""
 password_stdin=0
 work_dir=""
@@ -298,11 +302,37 @@ ask_confirm() {
 	esac
 }
 
+ask_confirm_timeout() {
+	# $1 = 提示语，$2 = 超时默认值（y/n），$3 = 秒数。
+	# 与 ask_confirm 的区别：这是「有默认值的选择」，超时按默认走，不是硬闸门。
+	# 非交互（无 tty 或 --yes）时直接取默认，避免批处理模式下卡住。
+	local prompt="$1" def="$2" secs="$3" ans=""
+
+	if [ "${assume_yes:-0}" -eq 1 ] || [ ! -t 0 ]; then
+		echo "${prompt}（非交互，取默认：$def）"
+		[ "$def" = "y" ]
+		return
+	fi
+
+	printf '%s' "$prompt"
+	if ! read -r -t "$secs" ans; then
+		printf '\n（%s 秒内没有输入，按默认 %s 处理）\n' "$secs" "$def"
+		ans=""
+	fi
+	case "${ans:-$def}" in
+	[yY] | [yY][eE][sS]) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
 usage() {
 	cat <<EOF
 用法: $0 [选项]
 选项:
   --authorized-keys-url URL  设置 SSH 公钥 URL (仅支持 https)
+                            旧系统 root 及 /home/* 的 authorized_keys 会在抹盘前
+                            自动备份，安装时提示恢复（6 秒倒计时，默认恢复）；
+                            与 URL 下发的公钥合并，同一把钥按类型+密钥体去重
   --password PASS           设置 root 密码（会出现在进程表中，建议改用 --password-file）
   --password-file FILE      从文件读取 root 密码（首行）
   --password-stdin          从标准输入读取 root 密码
@@ -334,8 +364,11 @@ usage() {
   --no-offline-stage        不预下载新系统必需软件包（内核/initramfs-tools/DHCP
                             客户端）。默认会预下载到 /os/offline-debs，抹盘后网络
                             异常时可用它 dpkg -i 救回可引导状态
-  --with-tcpx               额外安装 tcpx 到 /usr/local/bin/tcpx（默认不安装，
-                            不自动执行；内容取自 GitHub 可变分支，无校验和）
+  --no-tcpx                 不安装 tcpx（默认会安装到 /usr/local/bin/tcpx，
+                            只装不执行；内容取自 GitHub 可变分支，默认无校验和）
+  --tcpx-sha256 HEX         tcpx.sh 的期望 SHA256。给了就强制校验，不匹配则不安装
+                            （可用环境变量 TCPX_SHA256 等价指定）
+  --with-tcpx               兼容旧写法，等同默认行为
   --kernel {auto|generic|cloud}
                             内核类型。auto（默认）= 按检测到的根磁盘驱动自动选：根盘
                             走 virtio 用 cloud 精简内核，否则用通用内核。generic = 强制
@@ -514,6 +547,12 @@ while [ $# -gt 0 ]; do
 	--no-tcpx)
 		download_tcpx=0
 		shift
+		;;
+	--tcpx-sha256)
+		need_value "$1" $#
+		require_sha256 "--tcpx-sha256" "$2"
+		tcpx_sha256="${2,,}"
+		shift 2
 		;;
 	--yes | -y)
 		assume_yes=1
@@ -2370,6 +2409,45 @@ collect_reinstall_backup() {
 	return 0
 }
 
+# 抹盘前把常见账号的 authorized_keys 单独抓出来。
+# 放在 /os 下而不是 tar 备份里：tar 备份有「最多两份」的上限，公钥是恢复登录
+# 的唯一凭据，不能因为配额已满而丢；/os 本身在抹盘排除列表里，抹完还在。
+backup_authorized_keys() {
+	local dst="${root_dir}/ssh-key-backup"
+	rm -rf "$dst" 2>/dev/null || true
+	mkdir -p "$dst" || {
+		echo "警告：无法创建公钥备份目录，本次不备份 SSH 公钥"
+		return 0
+	}
+	chmod 700 "$dst" 2>/dev/null || true
+
+	local k="" user="" n=0
+	local -a found=()
+	for k in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; do
+		[ -s "$k" ] || continue
+		case "$k" in
+		/root/.ssh/authorized_keys) user=root ;;
+		/home/*)
+			user="${k#/home/}"
+			user="${user%%/*}"
+			;;
+		*) continue ;;
+		esac
+		[ -n "$user" ] || continue
+		cp -f "$k" "$dst/${user}.keys" 2>/dev/null || continue
+		chmod 600 "$dst/${user}.keys" 2>/dev/null || true
+		found+=("$user")
+		n=$((n + 1))
+	done
+
+	if [ "$n" -eq 0 ]; then
+		echo "旧系统未发现 SSH 公钥（authorized_keys）"
+		return 0
+	fi
+	echo "已备份 ${n} 个账号的 SSH 公钥：${found[*]}（$dst）"
+	return 0
+}
+
 # 把备份落进新系统。历史备份最多保留两份，超过就不再新增/覆盖。
 restore_reinstall_backup() {
 	local stage="${root_dir}/reinstall-backup-stage"
@@ -2511,6 +2589,8 @@ delete_old_system() {
 
 	# 搜集要带进新系统的旧配置。必须在抹盘前做，抹完这些文件就没了。
 	collect_reinstall_backup
+	# 公钥单独存一份：恢复登录只靠它，不能受 tar 备份份数上限影响
+	backup_authorized_keys
 
 	# 抹盘标记：脚本自身的删除会把 /bin/sh、bash、curl 一起带走，中途失败后
 	# 二次运行等于在「半新半旧」的系统上重新选盘。标记文件留在 $root_dir（被排除），
@@ -3066,6 +3146,65 @@ configure_root_password() {
 	fi
 }
 
+merge_key_files() {
+	# $1 = 目标 authorized_keys，$2.. = 待合并的来源文件。
+	# authorized_keys 是「一行一把钥」，多把钥天然同时生效；这里只按
+	# 「类型 + 密钥体」去重，注释不同但同一把钥不会出现两次。
+	# 目标文件先读、再整体替换，避免边写边读把自己截断。
+	local target="$1"
+	shift
+	local f="" line=""
+
+	mkdir -p "$(dirname "$target")" 2>/dev/null || return 1
+	{
+		[ -f "$target" ] && cat "$target"
+		for f in "$@"; do
+			[ -s "$f" ] && cat "$f"
+		done
+	} | awk '
+		/^[[:space:]]*(#|$)/ { next }
+		{
+			id = $1 " " $2
+			if (id in seen) next
+			seen[id] = 1
+			print
+		}
+	' >"${target}.merge.tmp" || return 1
+
+	[ -s "${target}.merge.tmp" ] || {
+		rm -f "${target}.merge.tmp"
+		return 1
+	}
+	mv -f "${target}.merge.tmp" "$target" || return 1
+	chmod 600 "$target" 2>/dev/null || true
+	return 0
+}
+
+fetch_key_file() {
+	# $1 = 公钥 URL（已验证 https），$2 = 输出路径。curl 优先，wget 兜底。
+	# 两家的失败模式不同：curl 对写失败直接 (23) 退出，wget 会自己重试/续传，
+	# 所以一条 404/写满/只读的路径上必须两条都试过才算真失败。
+	local url="$1" out="$2"
+
+	if curl_c -sSLf --connect-timeout 10 --max-time 30 --max-filesize 65536 \
+		"$url" -o "$out" 2>/dev/null && [ -s "$out" ]; then
+		return 0
+	fi
+	rm -f "$out"
+
+	if command -v wget >/dev/null 2>&1 &&
+		wget -q --connect-timeout=10 -T 30 -t 2 -O "$out" "$url" 2>/dev/null && [ -s "$out" ]; then
+		return 0
+	fi
+	rm -f "$out"
+
+	if command -v "$busybox_path" >/dev/null 2>&1 || [ -x "$busybox_path" ]; then
+		"$busybox_path" wget -q -O "$out" "$url" 2>/dev/null && [ -s "$out" ] && return 0
+		rm -f "$out"
+	fi
+	return 1
+}
+
 configure_authorized_keys() {
 	[ -z "$authorized_keys_url" ] && return 0
 
@@ -3075,16 +3214,22 @@ configure_authorized_keys() {
 	mkdir -p /root/.ssh
 	chmod 700 /root/.ssh
 
-	if ! curl_c -sSLf --connect-timeout 10 --max-time 20 --max-filesize 65536 \
-		"$authorized_keys_url" -o "$key_tmp"; then
-		echo "警告：无法下载 SSH 公钥：$authorized_keys_url（保留密码登录）"
-		return 0
+	# curl 报 (23) write error 不是网络问题：是写目标失败（/tmp 满、只读、
+	# 小 tmpfs）。抹盘后 work_dir 在 /tmp，可能是容量很小的 tmpfs，
+	# 而 /os 在真实磁盘上，所以换目录再试一次；两条通道都试 wget。
+	if ! fetch_key_file "$authorized_keys_url" "$key_tmp"; then
+		key_tmp="${root_dir}/authorized_keys.tmp"
+		if ! fetch_key_file "$authorized_keys_url" "$key_tmp"; then
+			echo "警告：无法下载 SSH 公钥：$authorized_keys_url（保留密码登录）"
+			df -Pk "$work_dir" "$root_dir" 2>/dev/null | sed 's/^/  /' || true
+			return 0
+		fi
 	fi
 
 	# 只保留能通过 ssh-keygen 解析的行。"类型前缀 + AAAA" 的 grep 挡不住
 	# 'ssh-ed25519 AAAA' 这种残废公钥：它会通过正则，然后在关掉密码登录后
 	# 让 sshd 一个密钥都认不出 —— 重启即锁死，只能控制台救援。
-	local valid_tmp="${work_dir}/authorized_keys.valid"
+	local valid_tmp="${key_tmp}.valid"
 	: >"$valid_tmp"
 	local line="" kept=0
 	while IFS= read -r line || [ -n "$line" ]; do
@@ -3093,44 +3238,120 @@ configure_authorized_keys() {
 		case "$line" in
 		'' | '#'*) continue ;;
 		esac
-		printf '%s\n' "$line" >"${work_dir}/k.one"
+		printf '%s\n' "$line" >"${key_tmp}.one"
 		if command -v ssh-keygen >/dev/null 2>&1; then
-			ssh-keygen -l -f "${work_dir}/k.one" >/dev/null 2>&1 || continue
+			ssh-keygen -l -f "${key_tmp}.one" >/dev/null 2>&1 || continue
 		else
 			printf '%s\n' "$line" | grep -qE '^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp[0-9]+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com)[[:space:]]+AAAA' || continue
 		fi
 		printf '%s\n' "$line" >>"$valid_tmp"
 		kept=$((kept + 1))
 	done <"$key_tmp"
-	rm -f "${work_dir}/k.one"
+	rm -f "${key_tmp}.one"
 
 	if [ "$kept" -eq 0 ]; then
 		echo "警告：下载内容中没有可用的 SSH 公钥，已忽略并保留密码登录"
+		rm -f "$key_tmp" "$valid_tmp"
 		return 0
 	fi
 
-	install -m 0600 -o root -g root "$valid_tmp" /root/.ssh/authorized_keys || {
-		echo "警告：无法安装 authorized_keys，保留密码登录"
+	# 合并而不是覆盖：旧系统公钥备份可能后一步才恢复，两边同一把钥去重后只留一行
+	if ! merge_key_files /root/.ssh/authorized_keys "$valid_tmp"; then
+		echo "警告：无法写入 /root/.ssh/authorized_keys，保留密码登录"
+		rm -f "$key_tmp" "$valid_tmp"
 		return 0
-	}
+	fi
 
 	# 装完再验一次：install 成功不等于文件内容能被 sshd 用
 	if command -v ssh-keygen >/dev/null 2>&1; then
 		ssh-keygen -l -f /root/.ssh/authorized_keys >/dev/null 2>&1 || {
 			echo "警告：authorized_keys 安装后仍无法解析，保留密码登录"
-			rm -f /root/.ssh/authorized_keys
+			rm -f /root/.ssh/authorized_keys "$key_tmp" "$valid_tmp"
 			return 0
 		}
 	fi
 
-	echo "SSH 公钥配置完成（$kept 个密钥）"
+	rm -f "$key_tmp" "$valid_tmp"
+	echo "SSH 公钥配置完成（$kept 个密钥来自 $authorized_keys_url）"
+}
 
-	# 只有公钥确实可用时，才收紧为仅公钥登录
-	sshd_policy_password_auth="no"
-	sshd_policy_permit_root="prohibit-password"
-	write_sshd_dropin
-	sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config || true
-	echo "已关闭 SSH 密码登录，root 仅允许公钥登录"
+# 抹盘前备份的 authorized_keys 恢复到新系统。
+# 多个账号各一份，账号在新系统里不存在就只提示、不建用户（建号是另一件事，
+# 且默认口令/权限没人审）。公钥文件始终留在 $root_dir 里，随时可手工装。
+restore_authorized_keys() {
+	local src="${root_dir}/ssh-key-backup"
+	[ -d "$src" ] || return 0
+
+	local -a files=()
+	local f="" u=""
+	for f in "$src"/*.keys; do
+		[ -s "$f" ] || continue
+		files+=("$f")
+	done
+	[ "${#files[@]}" -gt 0 ] || return 0
+
+	local -a users=()
+	for f in "${files[@]}"; do
+		users+=("$(basename "$f" .keys)")
+	done
+	echo "发现旧系统 SSH 公钥备份：${users[*]}"
+
+	if ! ask_confirm_timeout "是否恢复到新系统？[Y/n] " y 6; then
+		echo "已跳过公钥恢复（备份保留在 $src）"
+		return 0
+	fi
+
+	local home="" ok=0 skipped=0
+	for f in "${files[@]}"; do
+		u="$(basename "$f" .keys)"
+		case "$u" in
+		root) home=/root ;;
+		*)
+			home="$(getent passwd "$u" 2>/dev/null | awk -F: '{print $6}')"
+			;;
+		esac
+		if [ -z "$home" ] || [ ! -d "$home" ]; then
+			echo "提示：新系统没有账号 $u，其公钥保留在 $f"
+			skipped=$((skipped + 1))
+			continue
+		fi
+		mkdir -p "$home/.ssh" 2>/dev/null || {
+			echo "提示：无法创建 $home/.ssh，${u} 的公钥保留在 $f"
+			skipped=$((skipped + 1))
+			continue
+		}
+		chmod 700 "$home/.ssh" 2>/dev/null || true
+		if merge_key_files "$home/.ssh/authorized_keys" "$f"; then
+			chown "$u" "$home/.ssh" "$home/.ssh/authorized_keys" 2>/dev/null || true
+			ok=$((ok + 1))
+			echo "已恢复 $u 的公钥（$(grep -c '[^[:space:]]' "$home/.ssh/authorized_keys" 2>/dev/null) 行）"
+		else
+			echo "提示：恢复 $u 的公钥失败，原始文件保留在 $f"
+			skipped=$((skipped + 1))
+		fi
+	done
+	echo "公钥恢复完成：成功 $ok 个账号，跳过 $skipped 个"
+	return 0
+}
+
+# 公钥与密码策略统一在这里定：只要 root 有一把能用 ssh-keygen 解析的钥，
+# 就关掉密码登录；否则保留密码登录，避免把自己锁在门外。
+apply_ssh_auth_policy() {
+	local keys=/root/.ssh/authorized_keys
+
+	if [ -s "$keys" ] && { ! command -v ssh-keygen >/dev/null 2>&1 || ssh-keygen -l -f "$keys" >/dev/null 2>&1; }; then
+		sshd_policy_password_auth="no"
+		sshd_policy_permit_root="prohibit-password"
+		write_sshd_dropin
+		sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config || true
+		echo "SSH 策略：root 已有可用公钥，已关闭密码登录（仅公钥登录）"
+	else
+		sshd_policy_password_auth="yes"
+		sshd_policy_permit_root="yes"
+		write_sshd_dropin
+		echo "SSH 策略：root 没有可用公钥，保留密码登录"
+	fi
+	return 0
 }
 
 write_network_interfaces() {
@@ -3931,6 +4152,8 @@ init_os() {
 	configure_ssh
 	configure_root_password
 	configure_authorized_keys
+	restore_authorized_keys
+	apply_ssh_auth_policy
 
 	# 校验 sshd 真正生效的取值，而不是只看自己写了什么：
 	# 1) "改了主文件但被 drop-in 覆盖"这类静默失效
@@ -4117,12 +4340,28 @@ EOF
 		mkdir -p /usr/local/bin
 		# 先下到隐藏的临时名，确认是脚本再改名：直接写 tcpx 会让 PATH 里出现
 		# 一个半截文件，用户手滑执行就是一堆语法错误。
-		if wget --connect-timeout=15 -T 10 -O "$tcpx_tmp" "$tcpx_sh_url" && [ -s "$tcpx_tmp" ]; then
+		local tcpx_ok=0
+		if curl_c -fsSL --connect-timeout 15 --max-time 90 -o "$tcpx_tmp" "$tcpx_sh_url" 2>/dev/null; then
+			tcpx_ok=1
+		elif command -v wget >/dev/null 2>&1 &&
+			wget -q --connect-timeout=15 -T 20 -O "$tcpx_tmp" "$tcpx_sh_url" 2>/dev/null; then
+			tcpx_ok=1
+		fi
+		if [ "$tcpx_ok" -eq 1 ] && [ -s "$tcpx_tmp" ]; then
 			tcpx_head="$(head -c 2 "$tcpx_tmp" 2>/dev/null)"
-			if [ "$tcpx_head" = "#!" ]; then
+			# 内容取自可变分支：默认只记录哈希供事后核对；给了 --tcpx-sha256 就必须匹配，
+			# 否则不装。这是唯一能防住上游分支被改写的手段。
+			local tcpx_hash=""
+			tcpx_hash="$(sha256sum "$tcpx_tmp" 2>/dev/null | awk '{print $1}')"
+			if [ -n "$tcpx_sha256" ] && [ "${tcpx_sha256,,}" != "$tcpx_hash" ]; then
+				rm -f "$tcpx_tmp"
+				echo "警告：tcpx.sh SHA256 不匹配（期望 $tcpx_sha256，实际 ${tcpx_hash:-取不到}），已放弃安装"
+			elif [ "$tcpx_head" = "#!" ]; then
 				chmod 0755 "$tcpx_tmp"
 				mv -f "$tcpx_tmp" /usr/local/bin/tcpx
 				echo "tcpx 已安装到 /usr/local/bin/tcpx（不会自动执行，需要时手动运行 tcpx）"
+				echo "tcpx 来源：$tcpx_sh_url"
+				echo "tcpx SHA256：${tcpx_hash:-取不到}（第三方脚本，首次运行前请自行审阅）"
 			else
 				rm -f "$tcpx_tmp"
 				echo "警告：下载内容不是脚本（缺少 #! 开头），已丢弃"
