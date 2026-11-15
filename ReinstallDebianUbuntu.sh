@@ -123,6 +123,9 @@ download_tcpx=0
 password_file=""
 password_stdin=0
 work_dir=""
+# 抹盘前的挂载点列表（路径）。抹盘后 /usr/bin/findmnt 已被删除，
+# 每次重建排除表达式都会拿不到挂载点，把 /boot/efi 这类必留的挂载点当成残留。
+WIPE_MOUNTS=()
 final_password=""
 # 已通过校验的镜像 SHA256，供解压前二次复核（缩窄 TOCTOU 窗口）
 verified_image_sha256=""
@@ -1688,7 +1691,8 @@ stage_offline_packages() {
 	if ! apt-get "${aptroot[@]}" -d --yes --no-install-recommends install \
 		"$kernel_pkg" initramfs-tools isc-dhcp-client ifupdown openssh-server \
 		>>"${work_dir}/aptstage.log" 2>&1; then
-		echo "警告：预下载软件包失败（详见 ${work_dir}/aptstage.log），已跳过（不影响后续联网安装）"
+		echo "警告：预下载软件包失败，已跳过（不影响后续联网安装）。apt 报错末尾："
+		tail -n 20 "${work_dir}/aptstage.log" 2>/dev/null | sed 's/^/  | /' || true
 		return 0
 	fi
 
@@ -1737,11 +1741,15 @@ wipe_exclude_expr() {
 	# 的 vfat 同理）。旧版靠 `|| true` 把这些失败静默掉，现在删除与复查共用
 	# 同一份 expr 且硬失败，漏掉它们就会在盘已经抹空之后误报「仍有残留」。
 	local mnt
-	while IFS= read -r mnt; do
-		[ -n "$mnt" ] || continue
-		[ "$mnt" = "/" ] && continue
-		paths+=("$mnt")
-	done < <(findmnt -rno TARGET 2>/dev/null || true)
+	if [ "${#WIPE_MOUNTS[@]}" -gt 0 ]; then
+		paths+=("${WIPE_MOUNTS[@]}")
+	else
+		while IFS= read -r mnt; do
+			[ -n "$mnt" ] || continue
+			[ "$mnt" = "/" ] && continue
+			paths+=("$mnt")
+		done < <(findmnt -rno TARGET 2>/dev/null || true)
+	fi
 
 	local -a expr=()
 	local p
@@ -2296,6 +2304,16 @@ delete_old_system() {
 		find / -xdev \( "${expr[@]}" \) -exec chattr -i -a {} + 2>/dev/null || true
 	fi
 
+	# 先缓存挂载点：删除一结束 /usr/bin/findmnt 就没了，复查阶段再调会静默返回空，
+	# 于是 /boot/efi 这类挂载点被当成「残留旧文件」误报硬失败（真机 AWS 上踩到）。
+	WIPE_MOUNTS=()
+	local _m=""
+	while IFS= read -r _m; do
+		[ -n "$_m" ] || continue
+		[ "$_m" = "/" ] && continue
+		WIPE_MOUNTS+=("$_m")
+	done < <(findmnt -rno TARGET 2>/dev/null || true)
+
 	# -xdev：不跨越挂载点，避免连带抹掉独立 /boot/efi、数据盘或 NFS
 	# 先停写盘服务再删，避免 journald 竞态重建 /var/log/journal
 	stop_disk_writers
@@ -2325,8 +2343,8 @@ delete_old_system() {
 		echo "警告：删除后仍有 ${#leftovers[@]} 处残留，逐个检查："
 		for p in "${leftovers[@]}"; do
 			if [ -d "$p" ] && [ ! -L "$p" ] &&
-				[ -z "$("$busybox_path" find "$p" -mindepth 1 -print -quit 2>/dev/null)" ]; then
-				echo "  $p（空目录，无害）"
+				[ -z "$("$busybox_path" find "$p" -xdev -mindepth 1 -print -quit 2>/dev/null)" ]; then
+				echo "  $p（本文件系统内已空，无害）"
 			elif wipe_leftover_is_sensitive "$p"; then
 				echo "  $p（安全敏感位置！$("$busybox_path" ls -ld "$p" 2>&1)）"
 				sensitive+=("$p")
@@ -4019,7 +4037,10 @@ net_mode() {
 	case "$ip_mode" in
 	dhcp)
 		is_auto=0
-		echo "沿用当前系统的 DHCP 方式（不再询问）。"
+		# 打一行当前实际地址，确认脚本认定的那块网卡就是承载业务的那块
+		local _cur=""
+		_cur=$(ip -4 -o addr show dev "${primary_nic:-$network_adapter}" scope global 2>/dev/null | awk '{print $4; exit}')
+		echo "沿用当前系统的 DHCP 方式（不再询问）。当前地址：${_cur:-未知}，网关：${gateway_ip:-未知}"
 		;;
 	static)
 		is_auto=1
