@@ -14,6 +14,8 @@ DEFAULT_TIMEZONE="Asia/Shanghai"
 DEFAULT_REGION="global"
 
 authorized_keys_url=""
+strict_key_auth=0
+restore_keys_optin=0
 password=""
 ssh_port=""
 hostname="${DEFAULT_HOSTNAME}"
@@ -88,6 +90,8 @@ use_local_dns=0
 
 grub_device=""
 GRUB_STRATEGY="standard"
+# 非空表示「抹盘前判定空洞够大、安装引导时要补一个 ef02 分区」（值为空洞扇区数）
+GRUB_NEED_EF02_GAP=""
 IS_EFI=0
 
 busybox_filename=""
@@ -126,6 +130,9 @@ root_dir_created=0
 # 装完敲 tcpx 就该能用；要跳过加 --no-tcpx。内容取自 GitHub 可变分支、默认无校验和，
 # 因此默认只打印实际 SHA256 供事后核对；要强校验就加 --tcpx-sha256 / TCPX_SHA256。
 download_tcpx=1
+# 与下面 init_os 里的 tcpx_ref 对应：Linux-NetSpeed@df15bd83 上 tcpx.sh 的 SHA256。
+# 上游一改内容就必须同时更新这两个值，否则安装会因不匹配而跳过（fail-closed）。
+TCPX_PIN_SHA256="3d0754d1f867d4b080a302f33d67d0786c1b7862d4ac44b3dfc68f48e7531f8f"
 tcpx_sha256="${TCPX_SHA256:-}"
 password_file=""
 password_stdin=0
@@ -330,6 +337,9 @@ usage() {
 用法: $0 [选项]
 选项:
   --authorized-keys-url URL  设置 SSH 公钥 URL (仅支持 https)
+  --strict-key-auth          有公钥时关闭密码登录（默认不关，避免锁死）
+  --restore-keys             恢复旧系统备份的 authorized_keys（默认不恢复：会给新
+                             系统多加一把凭据，且 --yes/非交互下原本会自动恢复）
                             旧系统 root 及 /home/* 的 authorized_keys 会在抹盘前
                             自动备份，安装时提示恢复（6 秒倒计时，默认恢复）；
                             与 URL 下发的公钥合并，同一把钥按类型+密钥体去重
@@ -403,6 +413,14 @@ while [ $# -gt 0 ]; do
 		[[ "$2" =~ ^https://[^[:space:]]+$ ]] || err "SSH 公钥 URL 必须是 https 地址：'$2'"
 		authorized_keys_url="$2"
 		shift 2
+		;;
+	--strict-key-auth)
+		strict_key_auth=1
+		shift
+		;;
+	--restore-keys)
+		restore_keys_optin=1
+		shift
 		;;
 	--password)
 		need_value "$1" $#
@@ -943,10 +961,26 @@ sync_clock_from_url() {
 }
 
 # 按 APT 镜像的 Release 文件校时（此时已知系统版本）
+# 明文 http 镜像不能作为时间源：校时结果会直接决定 apt 是否接受 Release 的有效期，
+# 而 http 镜像的响应可被链路上任何人改写（把时钟拨回即可让过期的 Release 重新「有效」，
+# 也可让攻击者的包通过 Valid-Until 检查）。此时改用默认 https 镜像取时间。
 sync_clock_from_mirror() {
 	local mirror="$1"
 	[ -n "$mirror" ] || return 0
-	sync_clock_from_url "$mirror/dists/$selected_version/Release"
+	case "$mirror" in
+	http://*)
+		local fallback=""
+		fallback="$(get_default_apt_mirror 2>/dev/null)"
+		if [ -n "$fallback" ]; then
+			echo "提示：镜像 $mirror 使用明文 http，不能作为时间源；改用 $fallback 校时"
+			sync_clock_from_url "$fallback/dists/$selected_version/Release"
+		else
+			echo "警告：镜像使用明文 http 且无 https 备用源，跳过校时（时钟偏差可能导致 apt 拒绝 Release）"
+		fi
+		;;
+	*) sync_clock_from_url "$mirror/dists/$selected_version/Release" ;;
+	esac
+	return 0
 }
 
 apply_dns_config() {
@@ -1782,7 +1816,9 @@ wipe_leftovers() {
 		echo "内部错误：无法构造 find 排除表达式，拒绝继续" >&2
 		return 1
 	}
-	local errf="${work_dir:-/tmp}/wipe-verify.err" n=0
+	# 参数 1 = 输出条数上限（默认 50，只为让日志可读）。安全敏感的判定不能用
+	# 截断后的列表，调用方传 0 取全量。
+	local cap="${1:-50}" errf="${work_dir:-/tmp}/wipe-verify.err" n=0
 	# 不复用 2>/dev/null：表达式坏了必须看得见，不能表现成「没有残留」
 	"$busybox_path" find / -xdev -mindepth 1 \( "${expr[@]}" \) -print 2>"$errf" |
 		while IFS= read -r p; do
@@ -1794,10 +1830,10 @@ wipe_leftovers() {
 			[ "$is_ancestor" -eq 1 ] && continue
 			printf '%s\n' "$p"
 			n=$((n + 1))
-			[ "$n" -ge 50 ] && {
-				printf '%s\n' "  ...（仅列出前 50 条）"
+			if [ "$cap" -gt 0 ] && [ "$n" -ge "$cap" ]; then
+				printf '%s\n' "  ...（仅列出前 $cap 条）"
 				break
-			}
+			fi
 		done
 	if [ -s "$errf" ]; then
 		echo "警告：残留复查 find 报错（结果可能不可信）：$(head -c 400 "$errf")" >&2
@@ -1904,9 +1940,17 @@ stage_offline_packages() {
 
 	# 把 apt 的全部状态指向临时目录：解析的是**新发行版**的索引，装的是**新架构**的包，
 	# 不会污染宿主机的 apt 状态。
+	# Dir::Etc::parts / trusted / trustedparts 必须一起切断：只改 sources 与 state 时，
+	# apt 仍会读旧系统的 /etc/apt/apt.conf.d（一条 Acquire::https::Verify-Peer "false"
+	# 就能让下载物变成攻击者指定的内容）和 /etc/apt/trusted.gpg.d（可加自签公钥）。
+	# 预下载产物抹盘后会被 offline_package_rescue 无签名 dpkg -i，所以这段隔离是必须的。
 	local -a aptroot=(
 		-o "Dir::Etc::sourcelist=$stage/sources.list"
 		-o "Dir::Etc::sourceparts=/dev/null"
+		-o "Dir::Etc::parts=/dev/null"
+		-o "Dir::Etc::trusted=/dev/null"
+		-o "Dir::Etc::trustedparts=/dev/null"
+		-o "Acquire::https::Verify-Peer=true"
 		-o "Dir::State::lists=$stage/var/lib/apt/lists"
 		-o "Dir::State::status=$stage/var/lib/dpkg/status"
 		-o "Dir::Cache=$stage/var/cache/apt"
@@ -1960,6 +2004,15 @@ stage_offline_packages() {
 		return 0
 	fi
 	offline_stage_dir="$dir"
+	# 给预下载产物留一份独立清单：抹盘后 offline_package_rescue 用 dpkg 直接装这些
+	# 文件，dpkg 不做签名/哈希校验，唯一能证明「是这里下载的那批」的就是这份清单。
+	# 清单与 .deb 同目录存放（同一次 cp 一起进新系统），清单缺失即拒绝离线安装。
+	if ( cd "$dir" && sha256sum -- *.deb >SHA256SUMS 2>/dev/null ); then
+		echo "已为 $n 个预下载包生成校验清单：$dir/SHA256SUMS"
+	else
+		echo "警告：无法生成预下载包校验清单，抹盘后将拒绝离线安装这批包"
+		rm -f "$dir/SHA256SUMS"
+	fi
 	echo "已预下载 $n 个软件包（$(du -sh "$dir" 2>/dev/null | awk '{print $1}')）：网络异常时可离线安装"
 	return 0
 }
@@ -1971,6 +2024,21 @@ offline_package_rescue() {
 	[ -d "$d" ] || return 1
 	k="$(find "$d" -maxdepth 1 -name '*.deb' 2>/dev/null | sort)"
 	[ -n "$k" ] || return 1
+	# 只装「预下载时记过账」的包：清单由 stage_offline_packages 生成，与 .deb 同批
+	# 拷进新系统。没有清单就不能证明这些文件是脚本下载的那批（缓存目录里可能混入
+	# 任何东西），此时宁可让调用方按致命错误处理，也不以 root 装来源不明的包。
+	if [ -f "$d/SHA256SUMS" ]; then
+		if ! ( cd "$d" && sha256sum -c --quiet SHA256SUMS >/dev/null 2>&1 ); then
+			echo "错误：预下载包的校验清单对不上（$(cd "$d" && sha256sum -c --quiet SHA256SUMS 2>&1 | head -5 | tr '\n' ' ')）"
+			echo "错误：拒绝离线安装来路不明的软件包。请恢复网络/域名解析后重跑安装，或用救援介质重装"
+			return 1
+		fi
+		echo "预下载包校验通过：$(printf '%s\n' "$k" | wc -l) 个包与清单一致"
+	else
+		echo "错误：缺少 $d/SHA256SUMS —— 这批 .deb 不是本脚本预下载的（或清单在传输中丢失）"
+		echo "错误：拒绝以 root 离线安装未经校验的软件包"
+		return 1
+	fi
 	echo "警告：软件源不可用，改用抹盘前预下载的 $(printf '%s\n' "$k" | wc -l) 个包离线安装"
 	# shellcheck disable=SC2086
 	DEBIAN_FRONTEND=noninteractive dpkg -i $k >/dev/null 2>&1 ||
@@ -2248,8 +2316,11 @@ verify_root_driver_installed() {
 		done
 	fi
 
-	# 任一目标内核缺失任一模块即视为"可能起不来"
-	local missing_in_default=0
+	# 任一目标内核缺失任一模块即视为"可能起不来"。
+	# 解析不出默认内核时（$kver 为空）不能把比较做成「空 != 空 = 相同」以外的形式：
+	# 旧写法 `[ "$kver" = "$(grub_default_kver)" ]` 在两边都空时恒假，于是
+	# missing_in_default 永远是 0，哪怕所有内核都缺驱动也会走到「自检通过」。
+	local missing_in_default=0 default_kver="$kver"
 	for kver in "${targets[@]}"; do
 		miss=""
 		for d in "${mods[@]}"; do
@@ -2257,7 +2328,9 @@ verify_root_driver_installed() {
 		done
 		[ -z "$miss" ] && continue
 		echo "警告：内核 $kver 缺少模块：${miss# }（根磁盘 $disk，驱动链：${drivers:-$drv}）"
-		[ "$kver" = "$(grub_default_kver 2>/dev/null)" ] && missing_in_default=1
+		if [ -z "$default_kver" ] || [ "$kver" = "$default_kver" ]; then
+			missing_in_default=1
+		fi
 	done
 
 	if [ "$missing_in_default" -eq 1 ] || [ "${#targets[@]}" -eq 0 ]; then
@@ -2448,6 +2521,57 @@ backup_authorized_keys() {
 	return 0
 }
 
+# 抹盘前把「抹盘后还能用」的最小工具集落到 $root_dir/recovery（该目录被排除，不会删）。
+# 动机：抹盘后 /bin/sh、bash、curl、tar、sed 全部消失，脚本里所有「请重跑本脚本」
+# 的提示在机器上都无法执行 —— 这类提示本身就是缺陷。备好工具后，至少还能手工
+# 解压已下载的镜像、或继续排查。
+stage_recovery_kit() {
+	local dir="${root_dir}/recovery" src="${BASH_SOURCE[0]}" bb="${busybox_path:-}" a=""
+	mkdir -p "$dir/bin" 2>/dev/null || {
+		echo "警告：无法创建 $dir，抹盘后将没有可用的就地自救工具"
+		return 0
+	}
+	chmod 0755 "$dir" 2>/dev/null || true
+
+	if [ -f "$src" ] && [ -r "$src" ]; then
+		cp -f "$src" "$dir/reinstall.sh" 2>/dev/null && chmod 0755 "$dir/reinstall.sh" 2>/dev/null ||
+			echo "警告：脚本副本保存失败（$dir/reinstall.sh）"
+	fi
+
+	if [ -n "$bb" ] && [ -x "$bb" ]; then
+		if cp -f "$bb" "$dir/busybox" 2>/dev/null; then
+			chmod 0755 "$dir/busybox" 2>/dev/null || true
+			for a in sh ash rm mv cp mkdir rmdir ls cat sed grep awk find xzcat tar gzip \
+				wget sha256sum mount umount chroot passwd fdisk dd sync df; do
+				ln -sfn ../busybox "$dir/bin/$a" 2>/dev/null || true
+			done
+		fi
+	fi
+
+	{
+		echo "这个目录是重装脚本在抹盘前留下的自救工具集。"
+		echo "抹盘后 /bin、curl、tar、sed 都已不存在，所以不要指望再执行常规命令。"
+		echo
+		echo "1) 如果 ${root_dir}/os.tar.xz 还在（已下载的系统镜像）："
+		echo "   ${dir}/bin/busybox xzcat ${root_dir}/os.tar.xz | ${dir}/bin/busybox tar -x -C /"
+		echo "   解压后执行 ${root_dir}/recovery/bin/busybox chroot / /bin/sh 检查，再决定是否重启。"
+		echo
+		echo "2) 如果没有镜像文件，只能通过云面板的救援模式/重装功能恢复。"
+		echo
+		echo "3) 注意：不要在救援介质里直接运行本脚本 —— 脚本默认 root_dir=/，"
+		echo "   会把救援系统自己抹掉。确实要在救援系统里重装，必须先 --root-dir 指向目标挂载点。"
+		echo
+		echo "生成时间：$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+	} >"$dir/README.txt" 2>/dev/null || true
+
+	# 与 $root_dir 其余内容一起被排除在删除之外；这里显式确认一次，避免排除
+	# 表达式将来改坏之后工具集被自己删掉。
+	if [ -f "$dir/README.txt" ]; then
+		echo "自救工具集已就位：${dir}（脚本副本 + busybox + README）"
+	fi
+	return 0
+}
+
 # 把备份落进新系统。历史备份最多保留两份，超过就不再新增/覆盖。
 restore_reinstall_backup() {
 	local stage="${root_dir}/reinstall-backup-stage"
@@ -2543,8 +2667,15 @@ umount_virtual_mounts() {
 			failed=1
 		fi
 	done < <(findmnt -rno TARGET,FSTYPE,SOURCE 2>/dev/null)
-	# 卸载后仍有活跃环回设备也无所谓：内容随磁盘一起消失，重启后自动失效
-	[ "$failed" -eq 0 ] || echo "提示：卸载失败的挂载点会在删除后的残留复查里报出来"
+	# 卸载后仍有活跃环回设备也无所谓：内容随磁盘一起消失，重启后自动失效。
+	# 注意不能承诺「残留复查会报出来」：复查用的是 find -xdev，跨不过挂载点，
+	# 卸载失败的内容在结构上就看不见。所以这里显式复核并如实说明。
+	if [ "$failed" -ne 0 ]; then
+		local still=""
+		still="$(findmnt -rno TARGET,FSTYPE 2>/dev/null | grep -E ' (squashfs|overlay|aufs|fuse)' | awk '{print $1}' | tr '\n' ' ')"
+		echo "警告：仍有虚拟/环回挂载未卸载：${still:-未知}"
+		echo "警告：这些挂载点（通常是 /snap/... 或 /var/lib/docker/overlay2/...）里的旧内容会跨过抹盘保留下来，重启后随挂载消失；如果你介意，请重启后人工确认这些目录为空"
+	fi
 	return 0
 }
 
@@ -2591,6 +2722,11 @@ delete_old_system() {
 	collect_reinstall_backup
 	# 公钥单独存一份：恢复登录只靠它，不能受 tar 备份份数上限影响
 	backup_authorized_keys
+	# 抹盘后 /bin、curl、tar、sed 全没了，任何「请重跑本脚本」的提示都执行不了。
+	# 所以在抹盘前把「还能用的最小工具集」落到 $root_dir（被排除，不会删）：
+	# 一份脚本副本 + busybox 及其 applet 软链。之后无论中止在哪个阶段，
+	# 操作员都能用 ${root_dir}/recovery/reinstall.sh 续跑，或手工恢复引导。
+	stage_recovery_kit
 
 	# 抹盘标记：脚本自身的删除会把 /bin/sh、bash、curl 一起带走，中途失败后
 	# 二次运行等于在「半新半旧」的系统上重新选盘。标记文件留在 $root_dir（被排除），
@@ -2633,6 +2769,19 @@ delete_old_system() {
 	# 附件属性 +a（append-only）同样会阻止 unlink，只清 -i 不够
 	if command -v chattr >/dev/null 2>&1; then
 		find / -xdev \( "${expr[@]}" \) -exec chattr -i -a {} + 2>/dev/null || true
+		# chattr 失败会被 -delete 变成「删不掉的残留」，而 -exec ... || true 让失败
+		# 完全不可见。清完后独立复核一次：仍带不可变/追加位的敏感路径要报出来，
+		# 否则后续残留复查只会说「删除未完成」，看不出根因是属性没清掉。
+		if command -v lsattr >/dev/null 2>&1; then
+			local _imm=""
+			_imm="$(find / -xdev \( "${expr[@]}" \) -maxdepth 6 -type f -print0 2>/dev/null |
+				xargs -0 -r lsattr -d 2>/dev/null |
+				awk '$1 ~ /[ia]/ { print $2 }' | head -n 20)"
+			if [ -n "$_imm" ]; then
+				echo "警告：以下路径仍带不可变/追加属性（可能删不掉）："
+				printf '%s\n' "$_imm" | sed 's/^/  /'
+			fi
+		fi
 	fi
 
 	# snap 的 /snap/core18/2855、docker 的 /var/lib/docker/overlay2/* 都是挂在 / 之下
@@ -2690,8 +2839,25 @@ delete_old_system() {
 				echo "  $p（非安全敏感位置，$("$busybox_path" ls -ld "$p" 2>&1)）"
 			fi
 		done
+		# 上面的列表被截断到 50 条，敏感判定必须另跑一次全量扫描：实测 59 条残留时
+		# 敏感项（/etc/ld.so.preload）落在第 51 条之后就被完全漏掉，复查假绿。
+		local _dup=0 _known=""
+		while IFS= read -r p; do
+			[ -n "$p" ] || continue
+			if [ -d "$p" ] && [ ! -L "$p" ] &&
+				[ -z "$("$busybox_path" find "$p" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+				continue
+			fi
+			wipe_leftover_is_mount_only_dir "$p" && continue
+			wipe_leftover_is_sensitive "$p" || continue
+			_dup=0
+			for _known in "${sensitive[@]}"; do
+				[ "$_known" = "$p" ] && _dup=1
+			done
+			[ "$_dup" -eq 1 ] || sensitive+=("$p")
+		done < <(wipe_leftovers 0)
 		if [ "${#sensitive[@]}" -gt 0 ]; then
-			[ "${ALLOW_DIRTY_WIPE:-0}" -eq 1 ] || err "删除旧系统未完成，这些安全敏感位置仍有旧文件：${sensitive[*]}。旧 /etc /usr /root 里的 ld.so.preload、cron、SUID、systemd unit、authorized_keys 会被新系统继承，等于把持久化带过去。默认中止（盘已抹空，进救援系统用 ALLOW_DIRTY_WIPE=1 重跑 --resume-partial 可强制继续）。"
+			[ "${ALLOW_DIRTY_WIPE:-0}" -eq 1 ] || err "删除旧系统未完成，这些安全敏感位置仍有旧文件：${sensitive[*]}。旧 /etc /usr /root 里的 ld.so.preload、cron、SUID、systemd unit、authorized_keys 会被新系统继承，等于把持久化带过去。盘已被抹空、当前系统已不可引导，不要重启。就地自救：${root_dir}/recovery/README.txt（含脚本副本与 busybox，可用它手工解压 ${root_dir}/os.tar.xz 恢复系统）。确认要先继续删除可加环境变量 ALLOW_DIRTY_WIPE=1（此时只能用 ${root_dir}/recovery/reinstall.sh 重跑，注意不要从救援介质直接运行本脚本——会把救援系统自己抹掉）。"
 			echo "警告：ALLOW_DIRTY_WIPE=1，忽略上述敏感残留继续；重装完成后务必人工清理这些路径。"
 		fi
 	fi
@@ -2743,6 +2909,9 @@ extract_image() {
 	if [ -n "${offline_stage_dir:-}" ] && [ -d "$offline_stage_dir" ] && ls "$offline_stage_dir"/*.deb >/dev/null 2>&1; then
 		mkdir -p /var/cache/apt/archives
 		cp -f "$offline_stage_dir"/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+		# 清单必须跟着 .deb 一起搬：offline_package_rescue 用它证明这批包的来源
+		cp -f "$offline_stage_dir/SHA256SUMS" /var/cache/apt/archives/SHA256SUMS 2>/dev/null ||
+			echo "警告：预下载包校验清单未能随包拷贝，抹盘后将拒绝离线安装"
 		echo "已把 $(find /var/cache/apt/archives -maxdepth 1 -name '*.deb' 2>/dev/null | wc -l) 个预下载包放入新系统 apt 缓存"
 	fi
 
@@ -2910,6 +3079,16 @@ write_apt_sources() {
 	local codename="$2"
 
 	: >/etc/apt/sources.list
+	# 镜像自带 sources.list.d（Ubuntu 云镜像有 deb822 的 ubuntu.sources，
+	# 也有第三方 PPA/厂商源）。它们和刚写好的 sources.list 并存时，apt 会同时
+	# 从旧镜像、旧发行版代号、甚至已经失效的 PPA 取包 —— 重装后 apt 直接报错，
+	# 或者从非预期源装包。这里把整目录移到备份处，只留脚本写的 sources.list。
+	if [ -d /etc/apt/sources.list.d ]; then
+		mkdir -p /etc/apt/sources.list.d.disabled-by-reinstall 2>/dev/null
+		mv -f /etc/apt/sources.list.d/* /etc/apt/sources.list.d.disabled-by-reinstall/ 2>/dev/null || true
+		mv -f /etc/apt/sources.list.d/.[!.]* /etc/apt/sources.list.d.disabled-by-reinstall/ 2>/dev/null || true
+		echo "已停用镜像自带的 /etc/apt/sources.list.d（移入 .disabled-by-reinstall）"
+	fi
 
 	if [ "$system" = "debian" ]; then
 		local components="main contrib non-free"
@@ -2967,12 +3146,23 @@ sshd_directive_supported() {
 	# 用只含 Port + 该指令的临时配置做解析，能通过才算本机 OpenSSH 支持。
 	# 目的：GSSAPIAuthentication / UseDNS 这类选项在版本间被增删，
 	# 写进 drop-in 后会让 sshd 整体起不来，等于重启后把机器锁在门外。
-	local tf="" rc=0
+	local tf="" rc=0 errf="" msg=""
+	# sshd -T 在 /run/sshd 不存在时会直接退出，报错里**没有** Unsupported option。
+	# 不先建这个目录，探测会把「环境缺目录」误判成「本机不支持该指令」，于是所有
+	# 可选指令都被丢掉（真实 forky 机器上四条全部被判不支持就是这么来的）。
+	mkdir -p /run/sshd 2>/dev/null || true
 	tf="$(mktemp)" || return 1
-	printf 'Port 22\n%s\n' "$2" >"$tf"
-	"$1" -T -f "$tf" >/dev/null 2>&1
+	errf="${tf}.err"
+	printf '%s\n%s\n' "Port 22" "$2" >"$tf"
+	"$1" -T -f "$tf" >/dev/null 2>"$errf"
 	rc=$?
-	rm -f "$tf"
+	if [ "$rc" -ne 0 ] && ! grep -qi 'Unsupported option' "$errf" 2>/dev/null; then
+		# 非 Unsupported 的失败同样按「不支持」处理（保守），但要说清原因，
+		# 否则日志看起来像「这个指令本身有问题」。
+		msg="$(head -n 1 "$errf" 2>/dev/null)"
+		echo "提示：sshd 探测 \"$2\" 失败（非 Unsupported 错误，按不支持处理）：${msg:-无输出}"
+	fi
+	rm -f "$tf" "$errf"
 	[ "$rc" -eq 0 ]
 }
 
@@ -3175,9 +3365,53 @@ merge_key_files() {
 		rm -f "${target}.merge.tmp"
 		return 1
 	}
-	mv -f "${target}.merge.tmp" "$target" || return 1
+
+	# 逐行校验：旧机恢复来的文件里常混着历史 ssh-dss、被截断的行、乱码。这些行
+	# 既不生效也不报错，操作员在日志里看不出来。合并时就地丢弃并报行号，同时把
+	# 真正生效的每把钥的指纹打出来（与下载路径的逐行校验保持同一标准）。
+	local idx=0 kept_n=0 bad_n=0 fp="" line="" one="${target}.one.tmp"
+	: >"${target}.valid.tmp"
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		idx=$((idx + 1))
+		if command -v ssh-keygen >/dev/null 2>&1; then
+			printf '%s\n' "$line" >"$one"
+			if ! fp="$(ssh-keygen -l -f "$one" 2>/dev/null)"; then
+				bad_n=$((bad_n + 1))
+				echo "提示：authorized_keys 第 $idx 行不是可解析的公钥，已丢弃：$(printf '%s' "$line" | cut -c1-40)"
+				continue
+			fi
+			printf '%s\n' "$line" >>"${target}.valid.tmp"
+			kept_n=$((kept_n + 1))
+			echo "纳入公钥：$fp"
+		else
+			printf '%s\n' "$line" >>"${target}.valid.tmp"
+			kept_n=$((kept_n + 1))
+		fi
+	done <"${target}.merge.tmp"
+	rm -f "$one" "${target}.merge.tmp"
+	[ "$kept_n" -gt 0 ] || {
+		rm -f "${target}.valid.tmp"
+		echo "警告：合并后没有一把可解析的公钥（丢弃 $bad_n 行）"
+		return 1
+	}
+	mv -f "${target}.valid.tmp" "$target" || return 1
 	chmod 600 "$target" 2>/dev/null || true
+	[ "$bad_n" -eq 0 ] || echo "提示：authorized_keys 共丢弃 $bad_n 行不可解析内容，保留 $kept_n 把可用公钥"
 	return 0
+}
+
+# 三条下载通道共用的大小闸：authorized_keys 合法体积远小于 64KiB，超限说明
+# 服务端在灌别的东西（wget/busybox 自身没有 --max-filesize）。$1 = 文件路径。
+key_file_size_ok() {
+	local sz
+	sz="$(wc -c <"$1" 2>/dev/null | tr -d ' ')"
+	[ -n "$sz" ] || sz=0
+	if [ "$sz" -gt 65536 ]; then
+		echo "警告：公钥文件异常大（${sz} 字节 > 64KiB），已丢弃"
+		return 1
+	fi
+	[ "$sz" -gt 0 ]
 }
 
 fetch_key_file() {
@@ -3186,22 +3420,22 @@ fetch_key_file() {
 	# 所以一条 404/写满/只读的路径上必须两条都试过才算真失败。
 	local url="$1" out="$2"
 
-	if curl_c -sSLf --connect-timeout 10 --max-time 30 --max-filesize 65536 \
-		"$url" -o "$out" 2>/dev/null && [ -s "$out" ]; then
+	if curl_c -sSLf --connect-timeout 10 --max-time 30 --max-filesize 65536 		"$url" -o "$out" 2>/dev/null && key_file_size_ok "$out"; then
 		return 0
 	fi
 	rm -f "$out"
 
 	if command -v wget >/dev/null 2>&1 &&
-		wget -q --connect-timeout=10 -T 30 -t 2 -O "$out" "$url" 2>/dev/null && [ -s "$out" ]; then
+		wget -q --connect-timeout=10 -T 30 -t 2 -O "$out" "$url" 2>/dev/null && key_file_size_ok "$out"; then
 		return 0
 	fi
 	rm -f "$out"
 
-	if command -v "$busybox_path" >/dev/null 2>&1 || [ -x "$busybox_path" ]; then
-		"$busybox_path" wget -q -O "$out" "$url" 2>/dev/null && [ -s "$out" ] && return 0
-		rm -f "$out"
+	if [ -x "$busybox_path" ] &&
+		"$busybox_path" wget -q -O "$out" "$url" 2>/dev/null && key_file_size_ok "$out"; then
+		return 0
 	fi
+	rm -f "$out"
 	return 1
 }
 
@@ -3240,7 +3474,11 @@ configure_authorized_keys() {
 		esac
 		printf '%s\n' "$line" >"${key_tmp}.one"
 		if command -v ssh-keygen >/dev/null 2>&1; then
-			ssh-keygen -l -f "${key_tmp}.one" >/dev/null 2>&1 || continue
+			# 指纹要打出来：公钥来自网络 URL，操作员必须能一眼确认拿到的是自己那把。
+			# 只报「安装了 N 把钥」时，装错钥和装对钥在日志里长得完全一样。
+			local _fp=""
+			_fp="$(ssh-keygen -l -f "${key_tmp}.one" 2>/dev/null)" || continue
+			echo "公钥指纹：$_fp"
 		else
 			printf '%s\n' "$line" | grep -qE '^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp[0-9]+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com)[[:space:]]+AAAA' || continue
 		fi
@@ -3296,7 +3534,17 @@ restore_authorized_keys() {
 	done
 	echo "发现旧系统 SSH 公钥备份：${users[*]}"
 
-	if ! ask_confirm_timeout "是否恢复到新系统？[Y/n] " y 6; then
+	# 默认「不恢复」：旧机的公钥未必还在操作员手上，自动并入等于给新系统多留
+	# 一把有效凭据，而操作员在日志里看不到这件事。交互时也要显式 y；--yes /
+	# 非交互必须 --restore-keys 才恢复（倒计时默认值从 y 改成 n 就是为此）。
+	if [ "${assume_yes:-0}" -eq 1 ] || [ ! -t 0 ]; then
+		if [ "${restore_keys_optin:-0}" -eq 1 ]; then
+			echo "按 --restore-keys 授权：恢复旧系统公钥到新系统"
+		else
+			echo "非交互模式默认不恢复旧系统公钥（备份保留在 $src；确需恢复请加 --restore-keys）"
+			return 0
+		fi
+	elif ! ask_confirm_timeout "是否把旧系统公钥恢复到新系统（会新增可用登录凭据）？[y/N] " n 6; then
 		echo "已跳过公钥恢复（备份保留在 $src）"
 		return 0
 	fi
@@ -3339,7 +3587,10 @@ restore_authorized_keys() {
 apply_ssh_auth_policy() {
 	local keys=/root/.ssh/authorized_keys
 
-	if [ -s "$keys" ] && { ! command -v ssh-keygen >/dev/null 2>&1 || ssh-keygen -l -f "$keys" >/dev/null 2>&1; }; then
+	# 只有显式要求才关密码登录。自动关掉的代价太不对称：恢复来的旧公钥不一定
+	# 是操作员手上那把（换机、换钥、云端注入的钥），一旦关掉又没别的入口，
+	# 就只能靠控制台救援。密码留着不构成额外风险，因为口令本来就已随机生成。
+	if [ "${strict_key_auth:-0}" -eq 1 ] && [ -s "$keys" ] && { ! command -v ssh-keygen >/dev/null 2>&1 || ssh-keygen -l -f "$keys" >/dev/null 2>&1; }; then
 		sshd_policy_password_auth="no"
 		sshd_policy_permit_root="prohibit-password"
 		write_sshd_dropin
@@ -3349,7 +3600,16 @@ apply_ssh_auth_policy() {
 		sshd_policy_password_auth="yes"
 		sshd_policy_permit_root="yes"
 		write_sshd_dropin
-		echo "SSH 策略：root 没有可用公钥，保留密码登录"
+		if [ "${strict_key_auth:-0}" -eq 1 ]; then
+			# 严格模式已开却没有一把可解析的钥：这是「要的安全目标没达成」，
+			# 必须说清楚原因与补救办法，而不是反过来让操作员再加一次参数。
+			echo "警告：已开启 --strict-key-auth，但没有可解析的 root 公钥，为防止锁死已保留密码登录"
+			echo "      补：用 --authorized-keys-url 指定公钥，或登录后自行配置 /root/.ssh/authorized_keys 再加 --strict-key-auth 重跑"
+		elif [ -s "$keys" ]; then
+			echo "SSH 策略：root 已有公钥，但仍保留密码登录（要只允许公钥请加 --strict-key-auth）"
+		else
+			echo "SSH 策略：root 没有可用公钥，保留密码登录"
+		fi
 	fi
 	return 0
 }
@@ -3419,13 +3679,41 @@ write_ipv6_dynamic_block() {
 
 	mode="$(ipv6_dynamic_mode)"
 	if [ "$mode" = "dhcp6" ]; then
+		# 关键：不能写 "inet6 dhcp"。ifupdown 的 dhcp 方法会同步跑 dhclient -6，
+		# 无回应时一直发 Solicit，ifup -a 被 networking.service 的
+		# TimeoutStartSec=15sec kill 掉，networkd/ifup 半途而废 —— 表现就是
+		# 重启后整个 IP 都不通（连 IPv4 一起没了）。改成 manual + 后台脚本：
+		# ifup 立刻返回，DHCPv6 在后台自己重试，失败也只丢 IPv6。
+		if [ -w /usr/local/sbin ] || mkdir -p /usr/local/sbin 2>/dev/null; then
+			cat >/usr/local/sbin/reinstall-dhcpv6 <<'DHCPV6_EOF'
+#!/bin/sh
+# 由 ReinstallDebianUbuntu.sh 生成：后台获取 DHCPv6，绝不阻塞 ifup。
+nic="${1:-eth0}"
+(
+	for _ in 1 2 3 4 5 6; do
+		if command -v dhclient >/dev/null 2>&1; then
+			timeout 20 dhclient -6 -1 "$nic" && exit 0
+		elif command -v dhcpcd >/dev/null 2>&1; then
+			timeout 20 dhcpcd -6 -1 "$nic" && exit 0
+		else
+			exit 1
+		fi
+		sleep 5
+	done
+) >/dev/null 2>&1 &
+exit 0
+DHCPV6_EOF
+			chmod 0755 /usr/local/sbin/reinstall-dhcpv6 2>/dev/null || true
+		fi
 		{
-			echo "iface $nic inet6 dhcp"
+			echo "iface $nic inet6 manual"
 			echo "    accept_ra 2"
 			echo "    autoconf 1"
+			echo "    up ip link set dev $nic up"
+			echo "    up /usr/local/sbin/reinstall-dhcpv6 $nic"
 		} >>/etc/network/interfaces
 		persist_ipv6_accept_ra "$nic"
-		echo "IPv6 自动获取方式：DHCPv6${tag:+（$tag）}，并允许接受 RA（accept_ra 2）"
+		echo "IPv6 自动获取方式：DHCPv6${tag:+（$tag）}，后台获取不阻塞 ifup，并允许接受 RA（accept_ra 2）"
 		return 0
 	fi
 
@@ -3694,8 +3982,16 @@ grub_inherit_old_cmdline() {
 	while IFS= read -r tok; do
 		[ -n "$tok" ] || continue
 		case "$tok" in
-		console=* | earlyprintk* | earlycon=* | keep_bootcon | intel_iommu=* | amd_iommu=* | iommu=* | nomodeset | pti=* | mitigations=* | vsyscall=*)
+		console=* | earlyprintk* | earlycon=* | keep_bootcon | nomodeset)
 			kept="${kept:+$kept }$tok"
+			;;
+		iommu=on | iommu=pt | intel_iommu=on | intel_iommu=pt | amd_iommu=on | amd_iommu=pt)
+			kept="${kept:+$kept }$tok"
+			;;
+		iommu=* | intel_iommu=* | amd_iommu=* | mitigations=* | pti=* | vsyscall=*)
+			# 旧机是不可信输入。mitigations=off / pti=off / iommu=off 这类削弱型参数
+			# 若被继承，重装出来的新系统仍带着上一台机器的内核缓解开关。
+			echo "提示：不继承旧机内核参数 $tok（削弱型或取值不明，新系统保持默认缓解）"
 			;;
 		esac
 	done <"$src"
@@ -3864,12 +4160,29 @@ install_grub() {
 	standard)
 		echo "执行标准 BIOS 模式安装..."
 		[ "$arch" = "x86_64" ] || err "BIOS/legacy 引导仅支持 x86_64"
+		# 抹盘前判定「空洞够大」时只记下需求，真正建 ef02 分区在这里做：此时操作员
+		# 已经确认过抹盘，创建分区不会落空成「取消了但分区表被改」。
+		if [ -n "${GRUB_NEED_EF02_GAP:-}" ]; then
+			if ensure_bios_boot_partition "$grub_device" "$GRUB_NEED_EF02_GAP"; then
+				echo "[决策] 已在磁盘开头空洞建立 BIOS Boot 分区（ef02）"
+			else
+				echo "警告：无法创建 BIOS Boot 分区（ef02），标准安装可能失败，将回落到强制嵌入流程"
+			fi
+		fi
 		grub-install --target=i386-pc --boot-directory=/boot --recheck "$grub_device" || {
 			# 自救路径写的是和 force_embed 完全相同的扇区，确认等级必须一致：
 			# 否则「第一次失败」就能让操作者绕过 force_embed 的确认闸
 			echo "警告：标准安装遇到分区校验阻碍（通常是 Legacy+GPT 且无 BIOS Boot 分区）"
-			ask_confirm "需要以 --force 强制嵌入引导代码（会写入 GPT 保护扇区附近并可能破坏分区表），确认继续？" ||
-				err "用户取消强制自救。系统已抹除且无引导，请从救援介质重装"
+			if [ "${force_embed_optin:-0}" -eq 1 ]; then
+				echo "[提示] 已显式指定 --force-embed，按该授权继续强制嵌入"
+			elif [ "${assume_yes:-0}" -eq 1 ] || [ ! -t 0 ]; then
+				# --yes / 非交互下 ask_confirm 会直接返回 0，等于没有闸门。
+				# 强制嵌入必须走显式授权，否则无人复核。
+				err "标准安装失败，需要强制嵌入才能引导，但当前是非交互模式且未显式授权。请从救援介质以 --force-embed 重跑（系统已抹除且无引导）"
+			else
+				ask_confirm "需要以 --force 强制嵌入引导代码（会写入 GPT 保护扇区附近并可能破坏分区表），确认继续？" ||
+					err "用户取消强制自救。系统已抹除且无引导，请从救援介质重装"
+			fi
 			grub-install --target=i386-pc --boot-directory=/boot --recheck --force "$grub_device" || err "GRUB BIOS 强制自救失败"
 		}
 		;;
@@ -3937,9 +4250,16 @@ ensure_emergency_swap() {
 	fi
 	avail_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
 	case "$avail_kb" in '' | *[!0-9]*) avail_kb=0 ;; esac
-	if [ "$avail_kb" -gt 0 ] && [ "$avail_kb" -lt $((mb * 1024 * 3)) ]; then
-		mb=$((avail_kb / 1024 / 4))
-		[ "$mb" -ge 512 ] || mb=512
+	# 上限必须由剩余空间真正决定：旧写法在兜底时强行抬到 512MB，等于在只剩
+	# 100MB 的小盘上仍然 fallocate 512MB —— 失败后直接跳过，swap 一个字节都没有，
+	# 后面照样 OOM。改成「最多占剩余空间一半，低于 256MB 就明确放弃」。
+	if [ "$avail_kb" -gt 0 ]; then
+		local max_mb=$((avail_kb / 1024 / 2))
+		[ "$max_mb" -lt "$mb" ] && mb="$max_mb"
+	fi
+	if [ "$mb" -lt 256 ]; then
+		echo "警告：根分区剩余 $((avail_kb / 1024))MB，连 256MB swap 都建不出来，跳过（OOM 风险高：请先清理空间或加内存）"
+		return 0
 	fi
 	echo "内存 $((mem_kb / 1024))MB 且当前无 swap，先建 ${mb}MB swap 再安装软件包（防止 OOM）"
 	(umask 077; : >/swapfile) 2>/dev/null || return 0
@@ -4281,12 +4601,19 @@ init_os() {
 		done
 	fi
 
-	local effective="" sshd_err=""
+	local effective="" sshd_err="" sshd_rc=1
 	if [ -n "$sshd_bin" ]; then
-		sshd_err="$("$sshd_bin" -T 2>&1 >/dev/null)"
+		# sshd -T 在 /run/sshd 缺失时会直接失败；先补上目录，否则会把环境问题
+		# 当成配置问题。
+		mkdir -p /run/sshd 2>/dev/null || true
+		effective="$("$sshd_bin" -T 2>"${work_dir:-/tmp}/sshd-T.err")"
+		sshd_rc=$?
+		sshd_err="$(cat "${work_dir:-/tmp}/sshd-T.err" 2>/dev/null)"
 	fi
-	if [ -n "$sshd_bin" ] && [ -z "$sshd_err" ]; then
-		effective="$("$sshd_bin" -T 2>/dev/null)"
+	# 判据必须同时看退出码与内容：旧写法只看 stderr 是否为空，一条「退出码非 0
+	# 但什么都没打印」的情况会被当成成功，随后端口覆盖检查与「关了密码但没有
+	# 可用公钥」的护栏全部被跳过 —— 最该拦住的两种锁死场景反而没拦。
+	if [ "$sshd_rc" -eq 0 ] && printf '%s\n' "$effective" | grep -qE '^(port|permitrootlogin|passwordauthentication) '; then
 		echo "SSH 生效配置："
 		printf '%s\n' "$effective" | grep -E '^(port|permitrootlogin|passwordauthentication|maxauthtries) ' | sed 's/^/  /' || true
 
@@ -4301,7 +4628,7 @@ init_os() {
 		fi
 	else
 		if [ -n "$sshd_err" ]; then
-			echo "警告：sshd -T 自检失败：$sshd_err（重启后请确认 SSH 可用性）"
+			echo "警告：sshd -T 自检失败（rc=$sshd_rc）：$sshd_err（重启后请确认 SSH 可用性）"
 		else
 			echo "警告：无法用 sshd -T 自检 SSH 配置（重启后请确认 SSH 可用性）"
 		fi
@@ -4427,11 +4754,14 @@ EOF
 
 	if [ "$download_tcpx" -eq 1 ]; then
 		echo "尝试下载 tcpx.sh ..."
-		local tcpx_sh_url="https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"
+		# 钉到具体 commit：可变分支（master）每次推送都会换内容，哈希也就无从校验。
+		# 内置的 TCPX_PIN_SHA256 就是这个 commit 上 tcpx.sh 的 SHA256；两者必须一致。
+		local tcpx_ref="df15bd83fc75e28e31b194df879c091960053637"
+		local tcpx_sh_url="https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/${tcpx_ref}/tcpx.sh"
 		local tcpx_tmp="/usr/local/bin/.tcpx.download"
 		local tcpx_head=""
-		[ "$region" = "cn" ] && tcpx_sh_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"
-		echo "警告：tcpx.sh 取自可变分支且没有完整性校验，运行前请自行审阅内容"
+		[ "$region" = "cn" ] && tcpx_sh_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/${tcpx_ref}/tcpx.sh"
+		: "${tcpx_sha256:=${TCPX_PIN_SHA256}}"
 
 		mkdir -p /usr/local/bin
 		# 先下到隐藏的临时名，确认是脚本再改名：直接写 tcpx 会让 PATH 里出现
@@ -4452,6 +4782,7 @@ EOF
 			if [ -n "$tcpx_sha256" ] && [ "${tcpx_sha256,,}" != "$tcpx_hash" ]; then
 				rm -f "$tcpx_tmp"
 				echo "警告：tcpx.sh SHA256 不匹配（期望 $tcpx_sha256，实际 ${tcpx_hash:-取不到}），已放弃安装"
+				echo "警告：可能是上游改了内容，或下载链路被替换。确认是新版本后可用 --tcpx-sha256 $tcpx_hash 重新指定"
 			elif [ "$tcpx_head" = "#!" ]; then
 				chmod 0755 "$tcpx_tmp"
 				mv -f "$tcpx_tmp" /usr/local/bin/tcpx
@@ -4630,10 +4961,25 @@ capture_dhcp_identity() {
 	#    新系统只要还是 isc-dhcp-client 就自动一致，无需显式写。
 	[ -n "$dhcp_hostname" ] || dhcp_hostname="$(cat /etc/hostname 2>/dev/null | head -n 1)"
 
-	# 只接受不会破坏 dhclient.conf 语法的取值（拒绝分号/换行等注入）
-	local ok_id="$dhcp_client_id" ok_duid="$dhcp6_client_id"
-	case "$ok_id" in *[\;\ ]* | *";"*) [ -n "$ok_id" ] && dhcp_client_id="" ;; esac
-	case "$ok_duid" in *";"*) [ -n "$ok_duid" ] && dhcp6_client_id="" ;; esac
+	# 只接受不会破坏 dhclient.conf 语法的取值。旧写法只拒分号与空格，`#` 能穿过：
+	# 写进 dhclient.conf 后 dhclient 把它当注释起点，整条 send 语句连同结尾的
+	# 分号一起失效 —— 首次启动就取不到 DHCP 地址（Debian 12/13 用 isc-dhcp-client
+	# 时属于「装完失联」）。这里改成白名单：只允许 MAC 派生的 hex/冒号、或
+	# 字符串形式的 [A-Za-z0-9._:-]，其它一律丢弃。
+	case "$dhcp_client_id" in
+	'') ;;
+	*[!A-Za-z0-9.:_-]*)
+		echo "提示：丢弃异常的 DHCP client-id（含非法字符）：$(printf '%s' "$dhcp_client_id" | cut -c1-40)"
+		dhcp_client_id=""
+		;;
+	esac
+	case "$dhcp6_client_id" in
+	'') ;;
+	*[!A-Za-z0-9.:_-]*)
+		echo "提示：丢弃异常的 DHCPv6 DUID（含非法字符）：$(printf '%s' "$dhcp6_client_id" | cut -c1-40)"
+		dhcp6_client_id=""
+		;;
+	esac
 
 	if [ -n "$dhcp_client_id" ] || [ -n "$dhcp6_client_id" ]; then
 		echo "已采集 DHCP 身份：client-id=${dhcp_client_id:-无}，DUID=${dhcp6_client_id:-无}（来源 ${dhcp_id_source:-状态文件}）"
@@ -4998,6 +5344,10 @@ detect_disk() {
 	root_src=$(findmnt -no SOURCE / 2>/dev/null)
 	if [ -n "$root_src" ]; then
 		root_disk=$(lsblk -no PKNAME "$root_src" 2>/dev/null | head -n 1)
+		# LVM/RAID/dm 根的 PKNAME 是空的（util-linux 对 dm 设备不设 wholedisk），
+		# 之前直接落到「无法校验」的告警，等于把「引导盘选错」这条最危险的错误
+		# 静默放行。这里沿 sysfs 的 slaves 链一路找真正的底层磁盘。
+		[ -n "$root_disk" ] || root_disk="$(backing_disk_of "$root_src")"
 		if [ -n "$root_disk" ]; then
 			if [ "/dev/$root_disk" != "$grub_device" ]; then
 				err "引导设备 $grub_device 与根文件系统所在磁盘 /dev/$root_disk 不是同一块盘。引导代码写错盘会导致重启后无法引导，已中止"
@@ -5007,6 +5357,41 @@ detect_disk() {
 			echo "警告：根分区 $root_src 未落在普通磁盘上（LVM/RAID/网络存储），无法校验引导盘是否与之一致"
 		fi
 	fi
+}
+
+# 把一个可能是 dm/md/分区的设备名解析到底层物理盘名（不含 /dev/）。
+# 走 /sys/class/block/<name>/slaves 递归（LVM 的 dm-N → md0 → sda 多层都能穿），
+# sysfs 不可用时退回 `lsblk -s` 找 type=disk 的祖先。解析不出来就输出空串，
+# 由调用方按「无法判定」处理——绝不能用猜的。
+backing_disk_of() {
+	local dev="${1##*/}" cur="" next="" i=0 seen=" "
+	[ -n "$dev" ] || return 0
+	case "$dev" in
+	/dev/*) dev="${dev##*/}" ;;
+	esac
+	cur="$dev"
+	while [ "$i" -lt 8 ]; do
+		i=$((i + 1))
+		case "$seen" in *" $cur "*) break ;; esac
+		seen="$seen$cur "
+		next=""
+		if [ -d "/sys/class/block/$cur/slaves" ]; then
+			next="$(ls /sys/class/block/"$cur"/slaves 2>/dev/null | head -n 1)"
+		fi
+		if [ -z "$next" ]; then
+			if [ -d "/sys/block/$cur" ]; then
+				printf '%s' "$cur"
+				return 0
+			fi
+			break
+		fi
+		cur="$next"
+	done
+	# 退回 lsblk：沿父链找 type=disk 的那一层
+	local walk=""
+	walk="$(lsblk -s -no NAME,TYPE "/dev/$dev" 2>/dev/null | awk '$2=="disk"{print $1; exit}')"
+	printf '%s' "$walk"
+	return 0
 }
 
 # GPT 磁盘开头（MBR 1 扇区 + GPT 主表 1-33 扇区）到第一个分区之间的空洞，
@@ -5082,6 +5467,13 @@ ensure_bios_boot_partition() {
 	case "${gap:-0}" in '' | *[!0-9]*) return 1 ;; esac
 	[ "$gap" -ge 1024 ] || return 1
 	end=$((34 + gap - 1))
+
+	# 预览模式不得改分区表：--dry-run 的语义是「只看不动」，而这段代码在
+	# 抹盘确认之前就执行了（apt 装 gdisk + sgdisk 写 GPT 都是副作用）。
+	if [ "${dry_run:-0}" -eq 1 ]; then
+		echo "[预览] 将在 $disk 的扇区 $start..$end 创建 BIOS Boot 分区（ef02），dry-run 下不执行"
+		return 1
+	fi
 
 	# 优先 sgdisk（GPT 原生，只改目标条目）；没有就用 fdisk/parted 提示手工处理
 	if command -v sgdisk >/dev/null 2>&1; then
@@ -5185,18 +5577,32 @@ auto_detect_grub_mode() {
 			# 门槛用 1024 扇区（512 KiB）：ef02 分区实际只放 core.img（几十 KiB）。
 			# 注意标准 1MiB 对齐布局是「第一个分区起于 2048 扇区，减去 GPT 占的 34
 			# 扇区 = 2014 扇区空洞」，门槛写成 2048 会把最常见的布局判成"没空间"。
-			if [ "${gap_sectors:--1}" -ge 1024 ] &&
-				ensure_bios_boot_partition "$target_disk" "$gap_sectors"; then
-				echo "[决策] 已在磁盘开头空洞建立 BIOS Boot 分区，使用标准模式（不改动任何已有分区）"
+			if [ "${gap_sectors:--1}" -ge 1024 ] && [ "${dry_run:-0}" -eq 1 ]; then
+				echo "[预览] 空洞 ${gap_sectors} 扇区足够，正式运行时会创建 BIOS Boot 分区（ef02）并走标准模式"
+				GRUB_STRATEGY="standard"
+			elif [ "${gap_sectors:--1}" -ge 1024 ]; then
+				# 只做判断，不在这里写分区表：这段代码跑在抹盘确认之前，操作员此刻
+				# 取消的话，分区表已经被改了（--dry-run 也会被执行到）。真正的创建
+				# 推迟到 install_grub 里、grub-install 之前。
+				echo "[决策] 磁盘开头空洞 ${gap_sectors} 扇区足够，将在安装引导时创建 BIOS Boot 分区（ef02）并使用标准模式"
+				GRUB_NEED_EF02_GAP="$gap_sectors"
 				GRUB_STRATEGY="standard"
 			elif [ "${EXISTING_BOOT_HINT:-unknown}" = "grub" ] &&
 				[ "${EXISTING_MBR_CODE:-0}" -eq 1 ] && [ "${force_embed_optin:-0}" -ne 1 ]; then
-				# 空洞不够时唯一可行的路就是 blocklists。而这台机器现在就是
-				# 「GPT + Legacy + 无 ef02 + 无空洞」却开得起来 —— 证据表明它本来
-				# 就靠 blocklists 引导，复刻同样的方式风险可控，不必再要求 --force-embed。
-				echo "[状态] 开头空洞不足以嵌入 core.img，但 MBR 里有 GRUB 引导代码 —— 现有系统本来就是 blocklists 引导"
-				echo "[决策] 复刻现有方式：用 blocklists 强制嵌入 core.img（grub-install --force）"
-				GRUB_STRATEGY="force_embed"
+				# 空洞不够时唯一可行的路就是 blocklists，但「现有系统能起来」并不能证明
+				# 新 core.img 的写入位置安全：grub-install --force 写的是磁盘开头的默认
+				# 嵌入区，不是老 core.img 原来所在的扇区。空洞 <512KiB 时这段写入会压到
+				# 第一个分区的起始扇区，而那通常正是刚解压好新系统的那一个。
+				# 所以启发式命中只能作为提示，授权仍必须显式。
+				echo "[状态] 开头空洞不足以嵌入 core.img（${gap_sectors} 扇区），但 MBR 里有 GRUB 引导代码"
+				echo "[提示] MBR 里的字符串不能证明新增 core.img 的写入位置安全；grub-install --force 会写磁盘开头的默认嵌入区"
+				if [ "${assume_yes:-0}" -eq 0 ] && [ -t 0 ] &&
+					ask_confirm "使用 blocklists 强制嵌入（会写入 GPT 保护扇区附近，可能破坏分区表），继续？"; then
+					echo "[决策] 使用 force_embed 模式（blocklists）"
+					GRUB_STRATEGY="force_embed"
+				else
+					err "已中止（现有系统未改动）。要使用 blocklists 强制嵌入，请显式加 --force-embed 重跑；或先在分区表中创建 BIOS Boot 分区（ef02，1MiB）"
+				fi
 			elif [ "${force_embed_optin:-0}" -ne 1 ]; then
 				# 空洞不够且无法证明现有系统用 GRUB blocklists：只能让操作者自己决定。
 				# 交互时问一次；--yes 批处理仍需显式 --force-embed（否则无人复核）。
@@ -5278,6 +5684,13 @@ verify_boot_menu() {
 		echo "引导自检通过：默认项内核参数包含 net.ifnames=0"
 	else
 		err "引导自检失败：默认项未包含 net.ifnames=0，网卡配置可能失效"
+	fi
+
+	# 继承来的旧机参数里若带削弱型开关（mitigations=off / pti=off / iommu=off ...），
+	# 新系统仍会带着上一台机器的缓解缺口重启。这里打印终态并拒绝放行。
+	echo "引导自检：默认项内核参数 = $(printf '%s' "$linux_line" | sed 's/^[[:space:]]*//')"
+	if grep -qE '(^|[[:space:]])(mitigations=off|pti=off|vsyscall=[a-z]*|iommu=off|intel_iommu=off|amd_iommu=off|nosmap|nosmep)([[:space:]]|$)' <<<"$linux_line"; then
+		err "引导自检失败：默认项内核参数包含削弱型开关（$(grep -oE '(mitigations=off|pti=off|vsyscall=[a-z]*|iommu=off|intel_iommu=off|amd_iommu=off|nosmap|nosmep)' <<<"$linux_line" | tr '\n' ' ')），重装后系统会带着旧机的安全削弱启动。请检查 /etc/default/grub 与 /etc/default/grub.d"
 	fi
 
 	# 旧机若在串口控制台上跑（console=ttyS0,...），新系统丢了它 = 面板上再也看不到
