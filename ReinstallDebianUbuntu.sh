@@ -26,6 +26,9 @@ busybox_path="${root_dir}/busybox"
 
 system=""
 selected_version=""
+# --image-version：非交互指定发行代号（bookworm/trixie/noble…）。
+# 为空时仍然交互选择；指定值会先与受支持列表比对，不在列表里直接失败。
+image_version=""
 base_url=""
 cn_base_url=""
 arch="$(uname -m)"
@@ -193,6 +196,7 @@ usage() {
   --hostname NAME           设置主机名
   --apt-mirror URL          设置 APT 镜像 URL
   --region {cn|global}      设置区域
+  --image-version NAME      直接指定发行代号（如 bookworm、trixie、noble），跳过交互选择
   --timezone ZONE           设置时区
   --expect-image-sha256 HEX 固定 rootfs.tar.xz 的 SHA256，不匹配则中止
   --busybox-sha256 HEX      固定 BusyBox 动态二进制的 SHA256，不匹配则中止
@@ -290,6 +294,17 @@ while [ $# -gt 0 ]; do
 		http://*) echo "警告：APT 镜像 '$2' 使用明文 http，链路上的任何人都能替换软件包索引" >&2 ;;
 		esac
 		apt_mirror_url="$2"
+		shift 2
+		;;
+	--image-version)
+		need_value "$1" $#
+		# 只接受小写字母数字的发行代号（bookworm/trixie/noble…），
+		# 之后还会在 get_versions 里对照受支持列表校验，避免把任意字符串
+		# 拼进下载 URL。
+		if ! [[ "$2" =~ ^[a-z][a-z0-9]{1,15}$ ]]; then
+			err "无效的发行代号 '$2'（示例：bookworm、trixie、noble）"
+		fi
+		image_version="$2"
 		shift 2
 		;;
 	--region)
@@ -502,7 +517,7 @@ set_arch_vars() {
 		;;
 	esac
 
-	busybox_base_url="https://gh-proxy.com/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
+	busybox_base_url="https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
 	cn_busybox_base_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
 	busybox_url="${busybox_base_url}/${busybox_filename}"
 	cn_busybox_url="${cn_busybox_base_url}/${busybox_filename}"
@@ -590,6 +605,21 @@ get_versions() {
 	done
 
 	[ "${#versions[@]}" -eq 0 ] && err "未检测到支持的 $system 版本"
+
+	# 非交互指定：必须在受支持列表里，否则直接失败（避免拿错代号装上不去）。
+	if [ -n "$image_version" ]; then
+		local supported=0 v
+		for v in "${versions[@]}"; do
+			[ "$v" = "$image_version" ] && supported=1
+		done
+		if [ "$supported" -ne 1 ]; then
+			err "不支持的发行代号 '$image_version'（可用：${versions[*]}）"
+		fi
+		selected_version="$image_version"
+		echo "已按 --image-version 选择版本：$selected_version (${version_map[$selected_version]})"
+		rm -f "$versions_file"
+		return 0
+	fi
 
 	echo "支持的 $system 版本："
 	for i in "${!versions[@]}"; do
@@ -2655,6 +2685,33 @@ enable_unit_offline() {
 	return 1
 }
 
+sshd_bin_path() {
+	# 已 wiped 的系统上 PATH 未必含 /usr/sbin，`command -v sshd` 会判未安装。
+	# 自检链路必须用绝对路径探测，否则整个校验会被静默跳过。
+	local b
+	for b in /usr/sbin/sshd /usr/local/sbin/sshd /sbin/sshd; do
+		if [ -x "$b" ]; then
+			printf '%s' "$b"
+			return 0
+		fi
+	done
+	return 1
+}
+
+sshd_directive_supported() {
+	# $1 = sshd 绝对路径，$2 = 完整指令行（如 "UseDNS no"）。
+	# 用只含 Port + 该指令的临时配置做解析，能通过才算本机 OpenSSH 支持。
+	# 目的：GSSAPIAuthentication / UseDNS 这类选项在版本间被增删，
+	# 写进 drop-in 后会让 sshd 整体起不来，等于重启后把机器锁在门外。
+	local tf="" rc=0
+	tf="$(mktemp)" || return 1
+	printf 'Port 22\n%s\n' "$2" >"$tf"
+	"$1" -T -f "$tf" >/dev/null 2>&1
+	rc=$?
+	rm -f "$tf"
+	[ "$rc" -eq 0 ]
+}
+
 write_sshd_dropin() {
 	local dropin_dir="/etc/ssh/sshd_config.d"
 	local dropin="${dropin_dir}/00-reinstall.conf"
@@ -2677,7 +2734,8 @@ write_sshd_dropin() {
 		rm -f "$tmp"
 	fi
 
-	# sshd 对同一关键字取"第一次出现的值"，00- 前缀保证胜过云镜像自带的 50-/60- 配置
+	# sshd 对同一关键字取"第一次出现的值"，00- 前缀保证胜过云镜像自带的 50-/60- 配置。
+	# 只写三条各版本都存在的核心指令；其余可选加固逐条探测后再追加。
 	{
 		echo "# 由重装脚本生成，优先级高于镜像自带的 sshd_config.d/*.conf"
 		if [ -n "$ssh_port" ]; then
@@ -2685,29 +2743,47 @@ write_sshd_dropin() {
 		fi
 		echo "PermitRootLogin $sshd_policy_permit_root"
 		echo "PasswordAuthentication $sshd_policy_password_auth"
-		echo "MaxAuthTries 3"
-		echo "GSSAPIAuthentication no"
-		echo "ClientAliveInterval 60"
-		echo "UseDNS no"
 	} >"$dropin"
+
+	local sshd_bin="" opt=""
+	if sshd_bin="$(sshd_bin_path)"; then
+		for opt in "MaxAuthTries 3" "GSSAPIAuthentication no" "ClientAliveInterval 60" "UseDNS no"; do
+			if sshd_directive_supported "$sshd_bin" "$opt"; then
+				echo "$opt" >>"$dropin"
+			else
+				echo "提示：本机 sshd 不支持 ${opt%% *}，未写入 00-reinstall.conf"
+			fi
+		done
+	else
+		echo "警告：未找到 sshd 可执行文件，跳过硬化的可选指令（只写 Port/PermitRootLogin/PasswordAuthentication）"
+	fi
 	chmod 0644 "$dropin"
 
-	# 新版 OpenSSH 会删掉旧选项（Debian 14 的 sshd 直接拒绝 GSSAPIAuthentication），
-	# 一个不认识的选项就让整个 sshd 起不来、连接全部失败。写完后用本机 sshd 验证，
-	# 只把报 Unsupported option 的那几行删掉再验，直到干净。
-	# sshd -T 在特权分离目录缺失时直接 255 退出且不报 Unsupported option，
-	# 会让我们以为"配置没问题"而漏掉不兼容的选项
+	# 兜底：逐条探测仍有漏网（或 sshd -T 因其它原因失败）时，直接用整份配置验证，
+	# 只删除它明确拒绝的选项。用绝对路径调用，避免 PATH 差异导致整段被跳过。
 	mkdir -p /run/sshd 2>/dev/null || true
-	local tries=0 out="" bad=""
-	while [ "$tries" -lt 8 ]; do
-		tries=$((tries + 1))
-		sshd -T -f /etc/ssh/sshd_config >/dev/null 2>&1 && break
-		out="$(sshd -T -f /etc/ssh/sshd_config 2>&1 || true)"
-		bad="$(printf '%s\n' "$out" | sed -n 's/.*Unsupported option \([A-Za-z0-9]*\).*/\1/p' | head -n 1)"
-		[ -n "$bad" ] || break
-		echo "提示：本机 sshd 不支持 $bad，已从 00-reinstall.conf 移除"
-		sed -i "/^${bad}[[:space:]]/d" "$dropin"
-	done
+	if [ -n "$sshd_bin" ]; then
+		local tries=0 out="" bad=""
+		while [ "$tries" -lt 8 ]; do
+			tries=$((tries + 1))
+			"$sshd_bin" -T -f /etc/ssh/sshd_config >/dev/null 2>&1 && break
+			out="$("$sshd_bin" -T -f /etc/ssh/sshd_config 2>&1 || true)"
+			bad="$(printf '%s\n' "$out" | sed -n 's/.*Unsupported option \([A-Za-z0-9]*\).*/\1/p' | head -n 1)"
+			if [ -z "$bad" ]; then
+				# 报错里没有选项名（缺 hostkey、缺权限分离目录、语法错…）时无法定向删除。
+				# 第一轮先退到"只保留核心三条"，把不兼容选项一次性清掉再验。
+				if [ "$tries" -eq 1 ]; then
+					sed -i -e '/^MaxAuthTries[[:space:]]/d' -e '/^GSSAPIAuthentication[[:space:]]/d' \
+						-e '/^ClientAliveInterval[[:space:]]/d' -e '/^UseDNS[[:space:]]/d' "$dropin"
+					continue
+				fi
+				echo "警告：sshd 配置自检仍未通过：$(printf '%s\n' "$out" | head -n 1)"
+				break
+			fi
+			echo "提示：本机 sshd 不支持 $bad，已从 00-reinstall.conf 移除"
+			sed -i "/^${bad}[[:space:]]/d" "$dropin"
+		done
+	fi
 }
 
 configure_ssh() {
@@ -3315,6 +3391,56 @@ install_grub() {
 }
 
 # 首次启动相关的收尾配置：machine-id、时间同步、swap、networkd、配置落盘。
+rebuild_initramfs() {
+	# $1 = 触发原因（写进日志/提示）
+	# 目的：把"看起来失败"变成"看得见原因"，并尽量降级到能开机。
+	#   - initramfs-tools 的 hooks 缺失时，-u 只会生成空壳 → 先补装
+	#   - -k all 会遍历 /lib/modules 下所有目录，任何一个残留目录没有对应内核
+	#     就会整批失败 → 退化成逐个内核重建
+	# 返回 0 = 至少有一个 initramfs 生成成功。
+	local reason="$1"
+	local log="/var/log/reinstall-initramfs.log"
+	local rc=0 kb any_ok=0
+
+	command -v update-initramfs >/dev/null 2>&1 || return 0
+
+	if [ ! -d /usr/share/initramfs-tools/hooks ]; then
+		echo "警告：initramfs-tools 的 hooks 缺失（无 /usr/share/initramfs-tools/hooks），尝试补装"
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -qq initramfs-tools >>"$log" 2>&1 || true
+	fi
+
+	: >"$log" 2>/dev/null || log=/dev/null
+	update-initramfs -u -k all >>"$log" 2>&1 && any_ok=1
+
+	if [ "$any_ok" -ne 1 ]; then
+		echo "提示：update-initramfs -u -k all 失败（详见 $log），改为逐个内核重试"
+		for kb in /lib/modules/*; do
+			[ -d "$kb" ] || continue
+			if update-initramfs -u -k "${kb##*/}" >>"$log" 2>&1; then
+				any_ok=1
+			fi
+		done
+	fi
+
+	if [ "$any_ok" -eq 1 ]; then
+		return 0
+	fi
+
+	rc=1
+	echo "警告：重建 initramfs 失败（$reason）。最近的错误输出："
+	tail -n 15 "$log" 2>/dev/null | sed 's/^/  | /'
+	echo "  已有 initramfs：$(ls -1 /boot/initrd.img-* 2>/dev/null | tr '\n' ' ')"
+	echo "  它通常仍可开机；若重启后卡在 initramfs 或缺磁盘驱动，进救援系统执行："
+	echo "    MODULES=most update-initramfs -u -k all"
+	# 留痕：重启后排查用
+	{
+		echo "重建 initramfs 失败：$reason"
+		date -u 2>/dev/null || true
+		tail -n 30 "$log" 2>/dev/null
+	} >/root/INITRAMFS-REBUILD-FAILED 2>/dev/null || true
+	return "$rc"
+}
+
 harden_first_boot() {
 	# 1) machine-id 是镜像自带的固定值，所有用同一镜像的机器都相同。
 	#    journald、systemd-networkd、部分软件授权都靠它区分实例。
@@ -3395,9 +3521,12 @@ harden_first_boot() {
 	echo "initramfs resume 已设为 none（swap 仍可用，不启用休眠恢复）"
 	# resume 文件是在 init_os 里的 update-initramfs 之后才写的，必须再重建一次，
 	# 否则新的 RESUME 不会被收进 initramfs。
+	# 注意：RESUME=none 只是"不自动恢复休眠"，重建失败并不等于系统起不来
+	#（旧 initramfs 里找不到 resume 设备只会多等几秒）。这里告警继续，
+	# 不能因为一次非关键的 resume 配置把整台机器卡在"请勿重启"。
 	if command -v update-initramfs >/dev/null 2>&1; then
-		update-initramfs -u -k all >/dev/null 2>&1 ||
-			err "设置 RESUME 后重建 initramfs 失败，请勿重启"
+		rebuild_initramfs "resume 配置" ||
+			echo "警告：resume 配置未写入 initramfs；如开机出现 Waiting for suspend/resume device，可手工执行 update-initramfs -u -k all 后重启"
 	fi
 
 	# 4) 只保留 ifupdown：networkd 与 ifupdown 同时 enabled 会在开机时抢同一块网卡，
@@ -3504,9 +3633,7 @@ init_os() {
 	# sshd/ssh-keygen 在 /usr/sbin（常不在 PATH 里，例如 su -c 或 CI 的 root shell）。
 	# 用 `command -v` 会在装好的系统上判"未安装"，属反向误报。
 	local sshd_bin="" keygen_bin=""
-	for _b in /usr/sbin/sshd /usr/local/sbin/sshd /sbin/sshd; do
-		[ -x "$_b" ] && { sshd_bin="$_b"; break; }
-	done
+	sshd_bin="$(sshd_bin_path)" || sshd_bin=""
 	for _b in /usr/bin/ssh-keygen /usr/local/bin/ssh-keygen /bin/ssh-keygen; do
 		[ -x "$_b" ] && { keygen_bin="$_b"; break; }
 	done
@@ -3515,6 +3642,20 @@ init_os() {
 	# "Missing privilege separation directory: /run/sshd"。
 	# 那样下面的所有断言都会被跳过，只剩一句"无法自检"的警告 —— 正是锁死场景。
 	mkdir -p /run/sshd 2>/dev/null || true
+
+	# 最后一道自动修复：drop-in 里只要残留一个本机不认识的选项，sshd 重启后
+	# 就完全起不来（不是降级，是全部连接拒绝）。这里把报错点名的选项删掉重试。
+	if [ -n "$sshd_bin" ] && [ -f /etc/ssh/sshd_config.d/00-reinstall.conf ]; then
+		local _try=0 _err="" _bad=""
+		while [ "$_try" -lt 4 ]; do
+			_try=$((_try + 1))
+			_err="$("$sshd_bin" -T 2>&1 >/dev/null)"
+			_bad="$(printf '%s\n' "$_err" | sed -n 's/.*Unsupported option \([A-Za-z0-9]*\).*/\1/p' | head -n 1)"
+			[ -n "$_bad" ] || break
+			echo "提示：sshd 仍不支持 $_bad，已从 00-reinstall.conf 移除后复验"
+			sed -i "/^${_bad}[[:space:]]/d" /etc/ssh/sshd_config.d/00-reinstall.conf
+		done
+	fi
 
 	local effective="" sshd_err=""
 	if [ -n "$sshd_bin" ]; then
@@ -3608,8 +3749,8 @@ EOF
 	# initramfs 在装内核时已生成，但 fstab/根设备参数是之后才定的；
 	# 重建一遍确保 resume/root 参数与最终 fstab 一致（否则部分机器会卡在 initramfs）
 	if command -v update-initramfs >/dev/null 2>&1; then
-		update-initramfs -u -k all >/dev/null 2>&1 ||
-			echo "警告：update-initramfs 失败，initramfs 可能未反映最终 fstab"
+		rebuild_initramfs "最终 fstab" ||
+			echo "警告：initramfs 可能未反映最终 fstab；若重启后卡在 initramfs，见 /root/INITRAMFS-REBUILD-FAILED"
 	fi
 
 	# 先写接口配置再启用服务：反过来的话 enable 成功但配置还没落地也无从判断
