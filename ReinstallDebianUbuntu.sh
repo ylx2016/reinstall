@@ -158,7 +158,121 @@ boot_separate=0
 kernel_flavor="auto"
 
 # 所有 curl 调用统一使用：强制 HTTPS、禁止重定向降级到 HTTP、最低 TLS 1.2
-CURL_TLS_OPTS=(--proto '=https' --proto-redir '=https' --tlsv1.2)
+CURL_TLS_BASE=(--proto '=https' --proto-redir '=https' --tlsv1.2)
+CURL_TLS_OPTS=("${CURL_TLS_BASE[@]}")
+
+# 按域名记录地址族偏好：host_family[host]=4|6，未记录 = 交给系统默认。
+# 不做全局强制：某个域名只有一边能通时，全局一刀切会把本来可用的下载也弄坏。
+declare -A host_family=()
+declare -A host_family_probed=()
+
+host_of_url() {
+	local h="${1#*://}"
+	h="${h%%/*}"
+	h="${h%%:*}"
+	printf '%s' "$h"
+}
+
+curl_c() {
+	# curl 包装：统一 TLS 参数 + 按目标域名的偏好追加 --ipv4/--ipv6。
+	# URL 可能出现在参数任意位置（curl 允许选项与 URL 交错），先扫一遍找出来。
+	local a="" url="" h="" fam=""
+	local -a fam_opts=()
+	for a in "$@"; do
+		case "$a" in
+		http://*|https://*)
+			url="$a"
+			break
+			;;
+		esac
+	done
+	if [ -n "$url" ]; then
+		h="$(host_of_url "$url")"
+		fam="${host_family[$h]:-}"
+		case "$fam" in
+		4) fam_opts=(--ipv4) ;;
+		6) fam_opts=(--ipv6) ;;
+		esac
+	fi
+	command curl "${CURL_TLS_OPTS[@]}" "${fam_opts[@]}" "$@"
+}
+
+flip_host_family() {
+	# 下载失败时翻转该域名的地址族（单侧路由/防火墙失效时唯一能自救的手段）
+	local url="$1" h="" fam="" alt=""
+	h="$(host_of_url "$url")"
+	fam="${host_family[$h]:-}"
+	[ -n "$fam" ] || return 1
+	if [ "$fam" = "4" ]; then alt=6; else alt=4; fi
+	echo "提示：IPv$fam 下载失败，$h 改用 IPv$alt 重试" >&2
+	host_family[$h]="$alt"
+	return 0
+}
+
+probe_ip_family() {
+	# $1 = 该域名下代价很小的 URL（首页/README）
+	# 只在域名同时有 A 和 AAAA 时竞速：curl -4 / -6 并行发一次请求，
+	# 谁的 time_total 短用谁；一边不通就用另一边；都失败则保持系统默认。
+	# 单栈域名直接返回，不记偏好（记了也没用，反而多一层判断）。
+	local url="$1"
+	local host="" v4="" v6="" d4="" d6="" t4="" t6="" pick=""
+
+	host="$(host_of_url "$url")"
+	[ -n "$host" ] || return 0
+	[ -n "${host_family_probed[$host]:-}" ] && return 0
+	host_family_probed[$host]=1
+
+	v4="$(getent ahostsv4 "$host" 2>/dev/null | awk 'NR==1{print $1}')"
+	v6="$(getent ahostsv6 "$host" 2>/dev/null | awk 'NR==1{print $1}')"
+
+	if [ -z "$v4" ] || [ -z "$v6" ]; then
+		if [ -n "$v4" ]; then
+			echo "地址族：$host 无 IPv6 记录，保持系统默认"
+		elif [ -n "$v6" ]; then
+			echo "地址族：$host 无 IPv4 记录，保持系统默认"
+		else
+			echo "地址族：无法解析 $host，保持系统默认"
+		fi
+		return 0
+	fi
+
+	d4="$(mktemp)" || return 0
+	d6="$(mktemp)" || {
+		rm -f "$d4"
+		return 0
+	}
+
+	# connect 超时 3s 兜住"有 AAAA 但 IPv6 实际不通"（黑洞路由）的情况，
+	# 否则单侧黑洞会把整次探测拖到 max-time。
+	(
+		t="$(curl -4 "${CURL_TLS_BASE[@]}" -sS -o /dev/null -w '%{time_total}' \
+			--connect-timeout 3 --max-time 6 "$url" 2>/dev/null)" && printf '%s' "$t" >"$d4"
+	) &
+	(
+		t="$(curl -6 "${CURL_TLS_BASE[@]}" -sS -o /dev/null -w '%{time_total}' \
+			--connect-timeout 3 --max-time 6 "$url" 2>/dev/null)" && printf '%s' "$t" >"$d6"
+	) &
+	wait
+
+	t4="$(cat "$d4" 2>/dev/null)"
+	t6="$(cat "$d6" 2>/dev/null)"
+	rm -f "$d4" "$d6"
+
+	if [ -n "$t4" ] && [ -n "$t6" ]; then
+		pick="$(awk -v a="$t4" -v b="$t6" 'BEGIN { print (a <= b) ? 4 : 6 }')"
+		echo "地址族竞速：$host IPv4 ${t4}s，IPv6 ${t6}s，选用 IPv$pick"
+		host_family[$host]="$pick"
+	elif [ -n "$t4" ]; then
+		echo "地址族竞速：$host IPv6 不可用，选用 IPv4"
+		host_family[$host]=4
+	elif [ -n "$t6" ]; then
+		echo "地址族竞速：$host IPv4 不可用，选用 IPv6"
+		host_family[$host]=6
+	else
+		echo "警告：$host 的 IPv4/IPv6 探测均失败，按系统默认地址族继续"
+	fi
+	return 0
+}
 
 # SSH 策略默认值。装上可用公钥后会被收紧为 no / prohibit-password
 sshd_policy_password_auth="yes"
@@ -587,10 +701,10 @@ get_versions() {
 		ver_url="$cn_base_url"
 		ver_fallback="$base_url"
 	fi
-	if ! curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 60 "$ver_url" -o "$versions_file" || [ ! -s "$versions_file" ]; then
+	if ! curl_c -fsSL --max-time 60 "$ver_url" -o "$versions_file" || [ ! -s "$versions_file" ]; then
 		if [ -n "$ver_fallback" ]; then
 			echo "警告：$ver_url 获取失败，尝试 $ver_fallback"
-			curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 60 "$ver_fallback" -o "$versions_file" ||
+			curl_c -fsSL --max-time 60 "$ver_fallback" -o "$versions_file" ||
 				err "无法获取版本列表：$ver_url"
 		else
 			err "无法获取版本列表：$ver_url"
@@ -757,7 +871,7 @@ sync_clock_from_url() {
 	[ -n "$url" ] || return 0
 	# 不用 head 截断：pipefail 下 head 提前退出会让整条管道带 SIGPIPE 状态
 	if command -v curl >/dev/null 2>&1; then
-		hdr="$(curl -sI --max-time 15 "${CURL_TLS_OPTS[@]}" "$url" 2>/dev/null |
+		hdr="$(curl_c -sI --max-time 15 "$url" 2>/dev/null |
 			sed -n 's/^[Dd]ate:[[:space:]]*//p' | tr -d '\r')"
 	elif command -v wget >/dev/null 2>&1; then
 		hdr="$(wget -S --spider --timeout=15 "$url" 2>&1 |
@@ -856,6 +970,25 @@ curl_download_capped() {
 	local out="$2"
 	local max_bytes="$3"
 	local timeout="$4"
+	local alt=""
+
+	if _curl_fetch_capped "$url" "$out" "$max_bytes" "$timeout"; then
+		return 0
+	fi
+
+	# 该域名若已按竞速结果强制了某一族，而该族因为单侧路由/防火墙失效
+	#（IPv6 黑洞最常见），翻转一次再试，避免整轮下载卡死在不可用的族上。
+	if flip_host_family "$url"; then
+		_curl_fetch_capped "$url" "$out" "$max_bytes" "$timeout" && return 0
+	fi
+	return 1
+}
+
+_curl_fetch_capped() {
+	local url="$1"
+	local out="$2"
+	local max_bytes="$3"
+	local timeout="$4"
 	local st=0
 	local got=0
 
@@ -870,7 +1003,7 @@ curl_download_capped() {
 	# 即判本次尝试失败，让 download_with_retry 正常重试或走备用地址。
 	local tmp_out="${out}.part.$$"
 	rm -f "$tmp_out"
-	curl "${CURL_TLS_OPTS[@]}" -SLf --retry 2 --connect-timeout "$timeout" \
+	curl_c -SLf --retry 2 --connect-timeout "$timeout" \
 		--max-time 3600 --speed-limit 1024 --speed-time 60 \
 		--max-filesize "$max_bytes" -o - "$url" 2>/dev/null |
 		head -c "$max_bytes" >"$tmp_out" || st=1
@@ -935,13 +1068,13 @@ download_text_with_fallback() {
 
 	# 文本清单（SHA256SUMS/versions.html）同样要限时限量：无上限的写盘等于把
 	# "还没校验就能写满 /"这条路留给对方。
-	if curl "${CURL_TLS_OPTS[@]}" -fsSL --connect-timeout 10 --max-time 120 \
+	if curl_c -fsSL --connect-timeout 10 --max-time 120 \
 		--max-filesize 10485760 "$primary_url" -o "$output_file" && [ -s "$output_file" ]; then
 		return 0
 	fi
 
 	if [ -n "$fallback_url" ] && [ "$fallback_url" != "$primary_url" ] &&
-		curl "${CURL_TLS_OPTS[@]}" -fsSL --connect-timeout 10 --max-time 120 \
+		curl_c -fsSL --connect-timeout 10 --max-time 120 \
 			--max-filesize 10485760 "$fallback_url" -o "$output_file" && [ -s "$output_file" ]; then
 		return 0
 	fi
@@ -951,7 +1084,7 @@ download_text_with_fallback() {
 
 get_remote_size() {
 	local url="$1"
-	curl "${CURL_TLS_OPTS[@]}" -sIL "$url" 2>/dev/null |
+	curl_c -sIL "$url" 2>/dev/null |
 		awk 'BEGIN{IGNORECASE=1} /^Content-Length:/ {gsub("\r","",$2); print $2; exit}' |
 		grep -E '^[0-9]+$' || true
 }
@@ -1032,8 +1165,8 @@ resolve_busybox_sha256_from_sums() {
 		sums_fallback="${busybox_base_url}/SHA256SUMS"
 	fi
 
-	if curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 30 "$sums_url" -o "$sums_file" 2>/dev/null ||
-		curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 30 "$sums_fallback" -o "$sums_file" 2>/dev/null; then
+	if curl_c -fsSL --max-time 30 "$sums_url" -o "$sums_file" 2>/dev/null ||
+		curl_c -fsSL --max-time 30 "$sums_fallback" -o "$sums_file" 2>/dev/null; then
 		got="$(awk -v f="$busybox_filename" '
 			{ sub(/\r$/, "", $2) }
 			$1 ~ /^[0-9a-fA-F]{64}$/ && ($2 == f || $2 == "*" f) { print $1; exit }
@@ -1201,7 +1334,7 @@ download_image() {
 		local probe_code="" probe_url="" probe_state=""
 		for probe_url in "${probe_urls[@]}"; do
 			# 目录列表是 302 站点，必须 -L 才能看到真实的 200/404
-			probe_code="$(curl "${CURL_TLS_OPTS[@]}" -sL -o /dev/null -w '%{http_code}' \
+			probe_code="$(curl_c -sL -o /dev/null -w '%{http_code}' \
 				--connect-timeout 10 --max-time 30 "$probe_url" 2>/dev/null)"
 			case "$probe_code" in
 			200) probe_state="ok"; break ;;
@@ -1228,10 +1361,10 @@ download_image() {
 
 	if [ -z "$timestamp" ]; then
 		echo "正在获取可用镜像时间戳列表..."
-		if ! curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 120 "$list_url" -o "${work_dir}/index.html" || [ ! -s "${work_dir}/index.html" ]; then
+		if ! curl_c -fsSL --max-time 120 "$list_url" -o "${work_dir}/index.html" || [ ! -s "${work_dir}/index.html" ]; then
 			if [ -n "$list_fallback_url" ]; then
 				echo "警告：$list_base_url 列表获取失败，尝试 $list_fallback_url"
-				curl "${CURL_TLS_OPTS[@]}" -fsSL --max-time 120 \
+				curl_c -fsSL --max-time 120 \
 					"$list_fallback_url/$selected_version/$image_arch/cloud/?C=M;O=D" -o "${work_dir}/index.html" ||
 					err "无法获取时间戳列表：$list_url"
 			else
@@ -2891,7 +3024,7 @@ configure_authorized_keys() {
 	mkdir -p /root/.ssh
 	chmod 700 /root/.ssh
 
-	if ! curl "${CURL_TLS_OPTS[@]}" -sSLf --connect-timeout 10 --max-time 20 --max-filesize 65536 \
+	if ! curl_c -sSLf --connect-timeout 10 --max-time 20 --max-filesize 65536 \
 		"$authorized_keys_url" -o "$key_tmp"; then
 		echo "警告：无法下载 SSH 公钥：$authorized_keys_url（保留密码登录）"
 		return 0
@@ -3391,16 +3524,86 @@ install_grub() {
 }
 
 # 首次启动相关的收尾配置：machine-id、时间同步、swap、networkd、配置落盘。
+set_initramfs_cheap_compress() {
+	# 默认压缩是 zstd，多线程压缩在 1~2GB 的小内存 VPS 上会被 OOM killer
+	# 直接 SIGKILL（日志特征："zstd failed: signal: 9 (SIGKILL)"），
+	# initramfs 就生成失败。gzip 的内存占用低一个数量级，代价是 initrd 大一点、
+	# 解压慢一点 —— 相比"开不了机"完全可接受。
+	mkdir -p /etc/initramfs-tools/conf.d /etc/dracut.conf.d 2>/dev/null || true
+	# initramfs-tools 用 COMPRESS=，Debian 13/14 的 dracut 后端用 compress=
+	printf 'COMPRESS=gzip\n' >/etc/initramfs-tools/conf.d/99-reinstall-compress.conf 2>/dev/null || true
+	printf 'compress="gzip"\n' >/etc/dracut.conf.d/99-reinstall-compress.conf 2>/dev/null || true
+}
+
+initramfs_mem_kb() {
+	awk '/^MemTotal:/ { print $2 }' /proc/meminfo 2>/dev/null || echo 0
+}
+
+initramfs_log_has_oom() {
+	# 只看日志尾部的本次尝试，避免被历史内容误判
+	local log="$1"
+	tail -n 40 "$log" 2>/dev/null | grep -qE 'signal: 9|SIGKILL|Out of memory|Cannot allocate memory|Killed'
+}
+
+ensure_emergency_swap() {
+	# 小内存机器必须在装内核/生成 initramfs 之前就有 swap：
+	# harden_first_boot 建 swap 的阶段在这些之后，等它建完早就 OOM 过了。
+	# 512MB 的 Lightsail 就属于这种（装内核时 postinst 生成 initramfs 直接 SIGKILL）。
+	local mem_kb avail_kb mb target_bytes=0
+	mem_kb="$(initramfs_mem_kb)"
+	[ "${mem_kb:-0}" -gt 0 ] || return 0
+	[ "$mem_kb" -lt 1572864 ] || return 0
+	# 已经有活跃 swap 就不用管
+	if [ "$(awk 'NR>1 && $1 != "Filename:" { c++ } END { print c + 0 }' /proc/swaps 2>/dev/null)" -gt 0 ]; then
+		return 0
+	fi
+	mb=1024
+	# 旧系统原来的 swap 更大就按原来的来（harden_first_boot 也会按这个尺寸，
+	# 这里先建好它就会跳过）
+	if [ -s "${root_dir}/swap.size.src" ]; then
+		IFS= read -r target_bytes <"${root_dir}/swap.size.src" || true
+		case "$target_bytes" in '' | *[!0-9]*) target_bytes=0 ;; esac
+		if [ "$target_bytes" -ge 268435456 ]; then
+			mb=$(((target_bytes + 1048575) / 1048576))
+		fi
+	fi
+	avail_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
+	case "$avail_kb" in '' | *[!0-9]*) avail_kb=0 ;; esac
+	if [ "$avail_kb" -gt 0 ] && [ "$avail_kb" -lt $((mb * 1024 * 3)) ]; then
+		mb=$((avail_kb / 1024 / 4))
+		[ "$mb" -ge 512 ] || mb=512
+	fi
+	echo "内存 $((mem_kb / 1024))MB 且当前无 swap，先建 ${mb}MB swap 再安装软件包（防止 OOM）"
+	(umask 077; : >/swapfile) 2>/dev/null || return 0
+	if ! fallocate -l "${mb}M" /swapfile 2>/dev/null; then
+		(umask 077; dd if=/dev/zero of=/swapfile bs=1M count="$mb" status=none) 2>/dev/null || {
+			rm -f /swapfile
+			echo "警告：无法创建 swapfile，继续（OOM 风险较高）"
+			return 0
+		}
+	fi
+	chmod 600 /swapfile 2>/dev/null || true
+	if mkswap /swapfile >/dev/null 2>&1 && swapon /swapfile >/dev/null 2>&1; then
+		grep -q '^/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >>/etc/fstab
+		echo "临时 swap 已启用：$(awk '/^\/swapfile/ { print $3 }' /proc/swaps 2>/dev/null) kB"
+	else
+		rm -f /swapfile
+		echo "警告：mkswap/swapon 失败，已删除 /swapfile"
+	fi
+	return 0
+}
+
 rebuild_initramfs() {
 	# $1 = 触发原因（写进日志/提示）
 	# 目的：把"看起来失败"变成"看得见原因"，并尽量降级到能开机。
 	#   - initramfs-tools 的 hooks 缺失时，-u 只会生成空壳 → 先补装
 	#   - -k all 会遍历 /lib/modules 下所有目录，任何一个残留目录没有对应内核
 	#     就会整批失败 → 退化成逐个内核重建
+	#   - zstd 压缩在小内存机器上被 OOM kill → 改用 gzip 重试
 	# 返回 0 = 至少有一个 initramfs 生成成功。
 	local reason="$1"
 	local log="/var/log/reinstall-initramfs.log"
-	local rc=0 kb any_ok=0
+	local rc=0 kb any_ok=0 mem_kb=0
 
 	command -v update-initramfs >/dev/null 2>&1 || return 0
 
@@ -3409,17 +3612,43 @@ rebuild_initramfs() {
 		DEBIAN_FRONTEND=noninteractive apt-get install -y -qq initramfs-tools >>"$log" 2>&1 || true
 	fi
 
+	# 小内存机器（<1.5GB）一开始就用 gzip：默认 zstd 基本必然被 OOM kill，
+	# 先试一次再改等于白白多花一两分钟。
+	mem_kb="$(initramfs_mem_kb)"
+	if [ "${mem_kb:-0}" -gt 0 ] && [ "$mem_kb" -lt 1572864 ]; then
+		echo "内存仅 $((mem_kb / 1024))MB，initramfs 改用 gzip 压缩（zstd 在此内存下会被 OOM kill）"
+		set_initramfs_cheap_compress
+	fi
+
 	: >"$log" 2>/dev/null || log=/dev/null
 	update-initramfs -u -k all >>"$log" 2>&1 && any_ok=1
 
 	if [ "$any_ok" -ne 1 ]; then
-		echo "提示：update-initramfs -u -k all 失败（详见 $log），改为逐个内核重试"
+		# 首轮失败先看是不是压缩器被 OOM 杀掉：是就先换 gzip 再重试，
+		# 否则逐个内核重试只会以同样方式再失败一遍。
+		if initramfs_log_has_oom "$log"; then
+			echo "提示：initramfs 生成时压缩进程被 OOM 杀掉（zstd SIGKILL），改用 gzip 压缩后重试"
+			set_initramfs_cheap_compress
+		else
+			echo "提示：update-initramfs -u -k all 失败（详见 $log），改为逐个内核重试"
+		fi
 		for kb in /lib/modules/*; do
 			[ -d "$kb" ] || continue
 			if update-initramfs -u -k "${kb##*/}" >>"$log" 2>&1; then
 				any_ok=1
 			fi
 		done
+	fi
+
+	if [ "$any_ok" -ne 1 ] && initramfs_log_has_oom "$log"; then
+		# 逐内核重试仍被 OOM kill（可能同时有多份压缩进程）：再试一次单内核，
+		# 并把 zstd 换成最低级别之外的 gzip 配置重新读取一次。
+		set_initramfs_cheap_compress
+		echo "提示：仍疑似内存不足，最后一次用 gzip 重建默认内核 initramfs"
+		kb="$(uname -r 2>/dev/null)"
+		if [ -n "$kb" ] && [ -d "/lib/modules/$kb" ]; then
+			update-initramfs -u -k "$kb" >>"$log" 2>&1 && any_ok=1
+		fi
 	fi
 
 	if [ "$any_ok" -eq 1 ]; then
@@ -3429,6 +3658,11 @@ rebuild_initramfs() {
 	rc=1
 	echo "警告：重建 initramfs 失败（$reason）。最近的错误输出："
 	tail -n 15 "$log" 2>/dev/null | sed 's/^/  | /'
+	if initramfs_log_has_oom "$log"; then
+		echo "  原因：initramfs 压缩进程被内核 OOM killer 杀掉（已改用 gzip 仍失败，说明内存确实不够）。"
+		echo "  已在 /etc/initramfs-tools/conf.d/99-reinstall-compress.conf 与 /etc/dracut.conf.d/99-reinstall-compress.conf 写入 gzip。"
+		echo "  重启后若卡在 initramfs：加内存或加 swap 后执行 MODULES=most update-initramfs -u -k all"
+	fi
 	echo "  已有 initramfs：$(ls -1 /boot/initrd.img-* 2>/dev/null | tr '\n' ' ')"
 	echo "  它通常仍可开机；若重启后卡在 initramfs 或缺磁盘驱动，进救援系统执行："
 	echo "    MODULES=most update-initramfs -u -k all"
@@ -3474,6 +3708,14 @@ harden_first_boot() {
 		IFS= read -r swap_bytes <"${root_dir}/swap.size.src" || true
 	fi
 	case "$swap_bytes" in '' | *[!0-9]*) swap_bytes=0 ;; esac
+	# 小内存机器即使旧系统没有 swap 也要建一份：512MB 的 VPS 在装内核、
+	# 生成 initramfs 时几乎必然 OOM，swap 是唯一能救回来的东西。
+	local _mem_kb
+	_mem_kb="$(initramfs_mem_kb)"
+	if [ "${_mem_kb:-0}" -gt 0 ] && [ "$_mem_kb" -lt 1572864 ] && [ "$swap_bytes" -lt 268435456 ]; then
+		swap_bytes=1073741824
+		echo "内存 $((_mem_kb / 1024))MB 且旧系统无 swap，新建 1024MB swap 以降低 OOM 风险"
+	fi
 	if [ "$swap_bytes" -ge 268435456 ]; then
 		local swap_mb=$(((swap_bytes + 1048575) / 1048576))
 		if [ ! -f /swapfile ]; then
@@ -3592,6 +3834,16 @@ init_os() {
 	rm -f /root/anaconda-ks.cfg
 	export LC_ALL=C.UTF-8
 
+	# 512MB~1GB 的小内存 VPS（如 Lightsail 512MB）上，内核包 postinst 生成
+	# initramfs 时默认的多线程 zstd 会被 OOM killer 杀掉。必须在这里就换成
+	# gzip：等到后面 rebuild_initramfs 再改已经晚了，内核安装阶段就失败过一次。
+	_early_mem_kb="$(initramfs_mem_kb)"
+	if [ "${_early_mem_kb:-0}" -lt 1572864 ]; then
+		echo "内存 $((_early_mem_kb / 1024))MB，initramfs 提前改用 gzip 压缩（zstd 会在小内存上被 OOM kill）"
+		set_initramfs_cheap_compress
+	fi
+	unset _early_mem_kb
+
 	echo "配置 APT 软件源..."
 	local final_apt_mirror_url="${apt_mirror_url:-$(get_default_apt_mirror)}"
 	echo "使用 APT 镜像：$final_apt_mirror_url"
@@ -3602,6 +3854,8 @@ init_os() {
 	echo "APT 软件源配置完成"
 	# 时钟不准时 apt 会把所有索引判成"来自未来"，先按镜像时间校正再来一次
 	sync_clock_from_mirror "$final_apt_mirror_url"
+	# 小内存机器先有 swap 再装内核，否则内核包的 postinst 生成 initramfs 会被 OOM kill
+	ensure_emergency_swap
 	# 抹盘后取不到索引是最危险的：此时旧系统已经没了，装不上内核就等于装出
 	# 一台开不了机的机器。所以先尽力用预下载的 .deb 把内核+initramfs 弄上去，
 	# 真弄不成才按致命错误停下。
@@ -4834,6 +5088,16 @@ main() {
 	set_network
 	net_mode
 	choose_system
+	# 双栈机器上 IPv6 常常"能解析但连不通"，让 curl 按系统优先级选就可能先走 IPv6
+	# 再失败回落，表现为长时间卡住。这里对实际承载下载的两个域名分别竞速，
+	# 按域名记录结果（不全局强制）：镜像站用首页，busybox 源用 README。
+	# ghproxy / 清华镜像不参与竞速：前者是回落用的代理，后者通常只有单栈。
+	if [ "$region" = "cn" ]; then
+		probe_ip_family "${cn_base_url}/"
+	else
+		probe_ip_family "${base_url}/"
+	fi
+	probe_ip_family "${busybox_base_url}/README.md"
 	# RTC 偏差大时 HTTPS 证书都验不过，连镜像列表都取不到；下载前先校一次时间。
 	# 用镜像站首页的 Date 头，不依赖具体版本目录是否可访问。
 	sync_clock_from_url "$base_url/" || true
