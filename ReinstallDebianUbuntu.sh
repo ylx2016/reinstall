@@ -1591,9 +1591,14 @@ wipe_leftovers() {
 # /var 下的 cron 与 systemd/dpkg 状态单列，其余 /var 视为数据/日志，只告警。
 wipe_leftover_is_sensitive() {
 	case "$1" in
-	# 定时器时间戳是零字节 stamp，systemd 运行中随时重建，与旧系统状态无关；
-	# 算作敏感会让抹盘必然失败，而它带不来任何持久化内容。
-	/var/lib/systemd/timers | /var/lib/systemd/timers/*) return 1 ;;
+	# 只放行 systemd 会自己重建的零字节 stamp：目录本身与 stamp-* 文件。
+	# 同一目录下的其它文件（攻击者放进去的持久化内容）仍然算敏感 ——
+	# 豁免范围过宽等于把整条抹盘复查关掉。
+	/var/lib/systemd/timers) return 1 ;;
+	/var/lib/systemd/timers/stamp-*)
+		[ -f "$1" ] && [ ! -s "$1" ] && return 1
+		return 0
+		;;
 	/etc | /etc/* | /root | /root/* | /home | /home/* | /bin | /bin/* | /sbin | /sbin/* \
 		| /lib | /lib/* | /lib32 | /lib32/* | /lib64 | /lib64/* | /libx32 | /libx32/* \
 		| /usr | /usr/* | /boot | /boot/* | /opt | /opt/* | /srv | /srv/* \
@@ -3610,7 +3615,8 @@ detect_primary_nic() {
 	local nic=""
 	nic=$(ip -4 route show default 2>/dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit }}')
 	if [ -z "$nic" ]; then
-		nic=$(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | grep -vE '^(lo|docker|veth|br-|virbr|tun|tap|wg)' | head -1)
+		nic=$(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' |
+			grep -vE '^(lo|docker|veth|br-|virbr|bond|tun|tap|wg|tailscale|sit|ip6tnl|gre|dummy)' | head -1)
 	fi
 	primary_nic="$nic"
 
@@ -3618,8 +3624,21 @@ detect_primary_nic() {
 		primary_nic_mac=$(cat "/sys/class/net/$nic/address" 2>/dev/null)
 	fi
 
-	nic_count=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' |
-		grep -vE '^(lo|docker|veth|br-|virbr|tun|tap|wg)' | wc -l)
+	# 只数真正挂在总线上的网卡：bond0 / sit0 / ip6tnl0 / tailscale0 / docker0 都
+	# 没有 /sys/class/net/<name>/device，按网卡名黑名单数会得到"物理网卡数：5"这种假值，
+	# 进而误判成多网卡、走 MAC 固定逻辑。
+	nic_count=0
+	local _l=""
+	for _l in /sys/class/net/*; do
+		[ -e "$_l/device" ] || continue
+		[ "${_l##*/}" = "lo" ] && continue
+		nic_count=$((nic_count + 1))
+	done
+	if [ "$nic_count" -eq 0 ]; then
+		# 容器/受限环境没有 device 链接，退回按名字过滤
+		nic_count=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' |
+			grep -vE '^(lo|docker|veth|br-|virbr|bond|tun|tap|wg|tailscale|sit|ip6tnl|gre|dummy)' | wc -l)
+	fi
 
 	echo "主网卡：${primary_nic:-未识别}（MAC ${primary_nic_mac:-未知}），物理网卡数：$nic_count"
 	return 0
@@ -3826,48 +3845,63 @@ get_ip() {
 }
 
 check_ipv6() {
-	local ipv6_addr
-	ipv6_addr=$(ip -6 addr show scope global | grep -oP 'inet6 \K[0-9a-f:]+/[0-9]+' | head -1)
+	local line="" ipv6_addr="" iface="" nic="${primary_nic:-$network_adapter}"
+
+	# 只认主网卡（承载默认路由那块）上的全局地址。全接口扫描会把 tailscale0 的
+	# fd7a:115c:a1e0::/48（Tailscale 自己的 ULA）当成"这台机器的 IPv6"写进新系统，
+	# 换台机器根本连不通；docker/bridge/tun 同理。
+	if [ -n "$nic" ]; then
+		line="$(ip -6 -o addr show dev "$nic" scope global 2>/dev/null | head -n 1)"
+		if [ -n "$line" ]; then
+			iface="$nic"
+			ipv6_addr="$(awk '{print $4}' <<<"$line")"
+		fi
+	fi
+	if [ -z "$ipv6_addr" ]; then
+		line="$(ip -6 -o addr show scope global 2>/dev/null |
+			awk '$2 !~ /^(lo|tailscale|tun|tap|wg|docker|veth|br-|virbr)/ {print; exit}')"
+		if [ -n "$line" ]; then
+			iface="$(awk '{print $2}' <<<"$line")"
+			ipv6_addr="$(awk '{print $4}' <<<"$line")"
+		fi
+	fi
 
 	if [ -n "$ipv6_addr" ]; then
-		echo "检测到 IPv6 地址：$ipv6_addr"
+		echo "检测到 IPv6 地址：$ipv6_addr（接口：${iface:-未知}）"
 		has_ipv6=1
 	else
 		echo "未检测到 IPv6 地址"
 		has_ipv6=0
 	fi
 
-	native_ipv6_iface=$(ip -6 addr show scope global | grep -B1 "$ipv6_addr" 2>/dev/null | grep -oP '^\d+:\s+\K\S+' | sed 's/@.*$//' | grep -E '^(eth|en)' | head -1)
+	case "$iface" in
+	eth* | en*) native_ipv6_iface="$iface" ;;
+	*) native_ipv6_iface="" ;;
+	esac
 
 	if [ -n "$native_ipv6_iface" ]; then
 		echo "检测到原生 IPv6（接口：$native_ipv6_iface）"
 		has_native_ipv6=1
-		native_ipv6_addr=$(echo "$ipv6_addr" | cut -d'/' -f1)
-		native_ipv6_mask=$(echo "$ipv6_addr" | cut -d'/' -f2)
-		native_ipv6_gw=$(ip -6 route show | grep -oP 'default via \K[0-9a-f:]+' | head -1)
+		native_ipv6_addr="$(echo "$ipv6_addr" | cut -d'/' -f1)"
+		native_ipv6_mask="$(echo "$ipv6_addr" | cut -d'/' -f2)"
+		native_ipv6_gw="$(ip -6 route show | grep -oP 'default via \K[0-9a-f:]+' | head -1)"
 		echo "原生 IPv6 信息：地址: $native_ipv6_addr，掩码: $native_ipv6_mask，网关: $native_ipv6_gw"
 	else
 		has_native_ipv6=0
 	fi
 
-	if [ "$has_ipv6" -eq 1 ]; then
-		local tunnel_iface
-		tunnel_iface=$(ip -6 addr show scope global | grep -B1 "$ipv6_addr" 2>/dev/null | grep -oP '^\d+:\s+\K\S+' | sed 's/@.*$//' | grep -v -E '^(eth|en)' | head -1)
-
-		if [ -n "$tunnel_iface" ] && ip tunnel show "$tunnel_iface" 2>/dev/null | grep -q "ipv6/ip"; then
-			if echo "$ipv6_addr" | grep -q "^2001:470:"; then
-				echo "检测到 HE.net 6in4 隧道（接口：$tunnel_iface）"
-				he_tunnel=1
-				he_client_ipv4=$(ip tunnel show "$tunnel_iface" | grep -oP 'local \K[\d.]+')
-				he_server_ipv4=$(ip tunnel show "$tunnel_iface" | grep -oP 'remote \K[\d.]+')
-				he_client_ipv6=$(echo "$ipv6_addr" | cut -d'/' -f1)
-				he_netmask=$(echo "$ipv6_addr" | cut -d'/' -f2)
-				he_server_ipv6=$(ip -6 route show | grep -oP 'default via \K[0-9a-f:]+' | head -1)
-				[ -z "$he_server_ipv6" ] && he_server_ipv6=$(echo "$he_client_ipv6" | sed 's/::2$/::1/')
-				echo "隧道信息：客户端 IPv4: $he_client_ipv4，服务器 IPv4: $he_server_ipv4，客户端 IPv6: $he_client_ipv6，服务器 IPv6: $he_server_ipv6"
-			else
-				he_tunnel=0
-			fi
+	if [ "$has_ipv6" -eq 1 ] && [ -n "$iface" ] &&
+		ip tunnel show "$iface" 2>/dev/null | grep -q "ipv6/ip"; then
+		if echo "$ipv6_addr" | grep -q "^2001:470:"; then
+			echo "检测到 HE.net 6in4 隧道（接口：$iface）"
+			he_tunnel=1
+			he_client_ipv4="$(ip tunnel show "$iface" | grep -oP 'local \K[\d.]+')"
+			he_server_ipv4="$(ip tunnel show "$iface" | grep -oP 'remote \K[\d.]+')"
+			he_client_ipv6="$(echo "$ipv6_addr" | cut -d'/' -f1)"
+			he_netmask="$(echo "$ipv6_addr" | cut -d'/' -f2)"
+			he_server_ipv6="$(ip -6 route show | grep -oP 'default via \K[0-9a-f:]+' | head -1)"
+			[ -n "$he_server_ipv6" ] || he_server_ipv6="$(echo "$he_client_ipv6" | sed 's/::2$/::1/')"
+			echo "隧道信息：客户端 IPv4: $he_client_ipv4，服务器 IPv4: $he_server_ipv4，客户端 IPv6: $he_client_ipv6，服务器 IPv6: $he_server_ipv6"
 		else
 			he_tunnel=0
 		fi
