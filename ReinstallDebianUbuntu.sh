@@ -3354,6 +3354,100 @@ apply_ssh_auth_policy() {
 	return 0
 }
 
+is_oracle_cloud() {
+	# Oracle Cloud 的 IPv6 不是 SLAAC：VCN 只按 DHCPv6 下发，且镜像里
+	# ipv6 forwarding 常为 1 —— 内核会直接丢弃 RA，SLAAC 拿不到地址/默认路由。
+	local f=""
+	for f in /sys/class/dmi/id/chassis_asset_tag /sys/class/dmi/id/sys_vendor \
+		/sys/class/dmi/id/product_name /sys/class/dmi/id/board_vendor; do
+		[ -r "$f" ] || continue
+		if pipe_grep_qi 'oracle' cat "$f"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+ipv6_forwarding_on() {
+	[ "$(sysctl -n net.ipv6.conf.all.forwarding 2>/dev/null || echo 0)" = "1" ] && return 0
+	[ -n "${network_adapter:-}" ] || return 1
+	[ "$(sysctl -n "net.ipv6.conf.${network_adapter}.forwarding" 2>/dev/null || echo 0)" = "1" ]
+}
+
+ipv6_dynamic_mode() {
+	# 返回 dhcp6 或 slaac。判据优先级：已知云厂商 > 现役 DHCPv6 客户端/租约 > 默认 SLAAC。
+	# 写错方向的代价不对称：该 DHCPv6 却写 auto，等于没有 IPv6（地址永远不来）；
+	# 该 SLAAC 却写 dhcp，dhclient -6 无回应会卡住 ifup（当年 VM 上就踩过）。
+	local f=""
+	if is_oracle_cloud; then
+		echo "dhcp6"
+		return 0
+	fi
+	for f in /var/lib/dhcp/dhclient6.leases /var/lib/dhcp/dhclient6.conf; do
+		[ -s "$f" ] && {
+			echo "dhcp6"
+			return 0
+		}
+	done
+	if command -v dhcpcd >/dev/null 2>&1 && pipe_grep_q 'dhcpcd' ps -eo comm 2>/dev/null; then
+		echo "dhcp6"
+		return 0
+	fi
+	echo "slaac"
+}
+
+persist_ipv6_accept_ra() {
+	# $1 = 网卡名。把 accept_ra=2 落成 sysctl 规则：inet6 dhcp/auto 只是 ifup 时
+	# 的一次性设置，重启后内核回到 accept_ra=1，forwarding=1 的机器又收不到 RA。
+	local nic="$1" f="/etc/sysctl.d/99-reinstall-ipv6.conf"
+	mkdir -p /etc/sysctl.d 2>/dev/null || return 0
+	if [ -f "$f" ] && pipe_grep_q "net.ipv6.conf.${nic}.accept_ra" cat "$f"; then
+		return 0
+	fi
+	{
+		echo "# 由 ReinstallDebianUbuntu.sh 写入：$nic 上接受 RA（forwarding=1 时内核默认丢弃）"
+		echo "net.ipv6.conf.${nic}.accept_ra = 2"
+	} >>"$f" 2>/dev/null || true
+	echo "已写入 $f：net.ipv6.conf.${nic}.accept_ra = 2"
+}
+
+write_ipv6_dynamic_block() {
+	# 往 /etc/network/interfaces 追加自动获取 IPv6 的 stanza。
+	# $1 = 网卡名，$2 = 指示文字（日志用）
+	local nic="$1" tag="${2:-}"
+	local mode="" need_ra=1
+
+	mode="$(ipv6_dynamic_mode)"
+	if [ "$mode" = "dhcp6" ]; then
+		{
+			echo "iface $nic inet6 dhcp"
+			echo "    accept_ra 2"
+			echo "    autoconf 1"
+		} >>/etc/network/interfaces
+		persist_ipv6_accept_ra "$nic"
+		echo "IPv6 自动获取方式：DHCPv6${tag:+（$tag）}，并允许接受 RA（accept_ra 2）"
+		return 0
+	fi
+
+	if ipv6_forwarding_on; then
+		need_ra=1
+	else
+		need_ra=0
+	fi
+	{
+		echo "iface $nic inet6 auto"
+		if [ "$need_ra" -eq 1 ]; then
+			echo "    accept_ra 2"
+		fi
+	} >>/etc/network/interfaces
+	if [ "$need_ra" -eq 1 ]; then
+		persist_ipv6_accept_ra "$nic"
+		echo "IPv6 自动获取方式：SLAAC${tag:+（$tag）}，forwarding 已开启故加 accept_ra 2"
+	else
+		echo "IPv6 自动获取方式：SLAAC${tag:+（$tag）}（无需 accept_ra）"
+	fi
+}
+
 write_network_interfaces() {
 	if [ -d /etc/netplan ] && ls /etc/netplan/*.yaml >/dev/null 2>&1; then
 		# 备份而不是直接删：netplan 是镜像自带的唯一可用网络配置，
@@ -3400,6 +3494,10 @@ EOF
 			local first6="${ipv6_addrs[0]}" extra6="" route6=""
 			{
 				echo "iface $network_adapter inet6 static"
+				# 静态地址时不要让 RA 再插一个地址/默认路由进来
+				if ipv6_forwarding_on; then
+					echo "    accept_ra 0"
+				fi
 				echo "    address ${first6%%/*}"
 				echo "    netmask ${first6##*/}"
 				if [ -n "$ipv6_gw" ]; then echo "    gateway $ipv6_gw"; fi
@@ -3412,9 +3510,9 @@ EOF
 			} >>/etc/network/interfaces
 			echo "已写入静态 IPv6：${ipv6_addrs[*]}（网关 ${ipv6_gw:-无}，额外路由 ${#ipv6_routes[@]} 条）"
 		elif [ "${#ipv6_addrs[@]}" -gt 0 ] && [ "$ipv6_dynamic" -eq 1 ]; then
-			# 静态 IPv4 + 自动获得的 IPv6（RA/SLAAC）：照旧要一份，别把 IPv6 丢掉
-			echo "iface $network_adapter inet6 auto" >>/etc/network/interfaces
-			echo "IPv6 仍沿用自动获取（RA/SLAAC）：${ipv6_addrs[*]}"
+			# 静态 IPv4 + 自动获得的 IPv6：照旧要一份，别把 IPv6 丢掉
+			write_ipv6_dynamic_block "$network_adapter" "静态 IPv4 环境"
+			echo "IPv6 仍沿用自动获取：${ipv6_addrs[*]}"
 		elif [ "$use_native_ipv6" -eq 1 ]; then
 			cat >>/etc/network/interfaces <<EOF
 iface $network_adapter inet6 static
@@ -3432,15 +3530,13 @@ auto $network_adapter
 iface $network_adapter inet dhcp
 EOF
 
-		# 只有原系统确有全局 IPv6 时才写 IPv6 段，且用 auto（SLAAC）而不是 dhcp：
-		#  1) 没有 IPv6 服务器时 dhclient -6 会一直发 Solicit，ifup -a 被
-		#     networking.service 的 TimeoutStartSec 超时 kill，服务变 failed；
-		#  2) SLAAC 不等待响应，即使局域没有 RA 也不会卡住启动。
-		# 实测（VMware NAT）：只写 inet dhcp 时 networking.service=active。
+		# 只有原系统确有全局 IPv6 时才写 IPv6 段。方式按实际来源选，不能一律 auto：
+		#  1) Oracle 这类 DHCPv6 下发的环境，写 auto 永远拿不到地址；
+		#  2) 纯 SLAAC 环境写 dhcp，dhclient -6 无回应会一直发 Solicit，
+		#     ifup -a 被 networking.service 的 TimeoutStartSec 超时 kill，服务变 failed；
+		#  3) 内核 ipv6 forwarding=1 时会丢弃 RA，必须 accept_ra 2 才肯收。
 		if [ "$has_ipv6" -eq 1 ]; then
-			cat >>/etc/network/interfaces <<EOF
-iface $network_adapter inet6 auto
-EOF
+			write_ipv6_dynamic_block "$network_adapter" "DHCP IPv4 环境"
 		fi
 	fi
 
