@@ -502,7 +502,7 @@ set_arch_vars() {
 		;;
 	esac
 
-	busybox_base_url="https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
+	busybox_base_url="https://gh-proxy.com/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
 	cn_busybox_base_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/busybox-static-binaries-fat/${busybox_ref}"
 	busybox_url="${busybox_base_url}/${busybox_filename}"
 	cn_busybox_url="${cn_busybox_base_url}/${busybox_filename}"
