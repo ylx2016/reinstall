@@ -334,7 +334,8 @@ usage() {
   --no-offline-stage        不预下载新系统必需软件包（内核/initramfs-tools/DHCP
                             客户端）。默认会预下载到 /os/offline-debs，抹盘后网络
                             异常时可用它 dpkg -i 救回可引导状态
-  --with-tcpx               额外下载 tcpx.sh 到 /root（默认不下载）
+  --with-tcpx               额外安装 tcpx 到 /usr/local/bin/tcpx（默认不安装，
+                            不自动执行；内容取自 GitHub 可变分支，无校验和）
   --kernel {auto|generic|cloud}
                             内核类型。auto（默认）= 按检测到的根磁盘驱动自动选：根盘
                             走 virtio 用 cloud 精简内核，否则用通用内核。generic = 强制
@@ -1611,8 +1612,8 @@ preflight_image() {
 	done
 
 	# 2b) 任何其它挂载在 / 之下的路径同样会残留：只允许伪文件系统与 ESP
-	local mnt="" mnt_fs=""
-	while read -r mnt mnt_fs; do
+	local mnt="" mnt_fs="" mnt_src=""
+	while read -r mnt mnt_fs mnt_src; do
 		[ -n "$mnt" ] || continue
 		case "$mnt" in
 		/ | /dev | /dev/* | /proc | /proc/* | /sys | /sys/* | /run | /run/*) continue ;;
@@ -1635,9 +1636,21 @@ preflight_image() {
 			echo "警告：$mnt（$mnt_fs）不会被清理，重启后随挂载失效"
 			continue
 			;;
+		squashfs | overlay | aufs | fuse | fuse.*)
+			# snap（/snap/core18/<rev>）、docker（/var/lib/docker/overlay2/*）这类
+			# 虚拟挂载：删除阶段会先卸载再清空目录，不需要用户动手。
+			echo "提示：$mnt（$mnt_fs）将在删除阶段先卸载再清除"
+			continue
+			;;
+		esac
+		case "$mnt_src" in
+		/dev/loop*)
+			echo "提示：$mnt 是环回设备挂载（$mnt_fs），将在删除阶段先卸载再清除"
+			continue
+			;;
 		esac
 		err "$mnt 是独立挂载点，删除阶段（-xdev）会跳过它，其内容将残留在新系统中。请先卸载或合并后重试"
-	done < <(findmnt -rno TARGET,FSTYPE 2>/dev/null)
+	done < <(findmnt -rno TARGET,FSTYPE,SOURCE 2>/dev/null)
 
 	# 确认前后须保持同一套 /boot 挂载；防止在等待交互期间换盘/新增子挂载。
 	findmnt -rno TARGET,SOURCE,FSTYPE >"${work_dir}/mounts.preflight" || err "无法记录挂载拓扑"
@@ -2424,6 +2437,39 @@ clean_retained_boot() {
 		err "无法清空独立 /boot 的旧内核，已中止，请勿重启"
 }
 
+umount_virtual_mounts() {
+	# 卸载挂在 / 之下的虚拟/环回文件系统，好让它们的挂载点目录能被删掉。
+	# 只碰 squashfs（snap）、overlay（docker/containerd）、fuse 以及 /dev/loop*
+	# 来源的挂载 —— 这些内容都可重建，卸掉不丢任何真实数据。
+	local mnt="" fs="" src="" failed=0 unit=""
+	for unit in snapd.service snapd.socket snapd.seeded.service \
+		docker.socket docker.service containerd.service; do
+		systemctl stop "$unit" >/dev/null 2>&1 || true
+	done
+	while read -r mnt fs src; do
+		[ -n "$mnt" ] || continue
+		case "$mnt" in
+		/ | /dev | /dev/* | /proc | /proc/* | /sys | /sys/* | /run | /run/*) continue ;;
+		"$root_dir" | "$root_dir"/*) continue ;;
+		esac
+		case "$fs" in
+		squashfs | overlay | aufs | fuse | fuse.*) ;;
+		*)
+			case "$src" in /dev/loop*) ;; *) continue ;; esac
+			;;
+		esac
+		if umount -l "$mnt" >/dev/null 2>&1 || umount -f "$mnt" >/dev/null 2>&1; then
+			echo "已卸载 $mnt（$fs），其挂载点目录随后会被清除"
+		else
+			echo "警告：无法卸载 $mnt（$fs），旧内容可能残留在该挂载点上"
+			failed=1
+		fi
+	done < <(findmnt -rno TARGET,FSTYPE,SOURCE 2>/dev/null)
+	# 卸载后仍有活跃环回设备也无所谓：内容随磁盘一起消失，重启后自动失效
+	[ "$failed" -eq 0 ] || echo "提示：卸载失败的挂载点会在删除后的残留复查里报出来"
+	return 0
+}
+
 delete_old_system() {
 	[ -f "$busybox_path" ] || err "BusyBox 文件缺失：$busybox_path"
 	"$busybox_path" --help >/dev/null 2>&1 || err "BusyBox 不可执行：$busybox_path"
@@ -2508,6 +2554,11 @@ delete_old_system() {
 	if command -v chattr >/dev/null 2>&1; then
 		find / -xdev \( "${expr[@]}" \) -exec chattr -i -a {} + 2>/dev/null || true
 	fi
+
+	# snap 的 /snap/core18/2855、docker 的 /var/lib/docker/overlay2/* 都是挂在 / 之下
+	# 的独立挂载点（squashfs / overlay / loop 设备）。find -xdev 不会进它们，rmdir
+	# 又会 EBUSY，结果就是一堆旧挂载点残壳。删文件之前先卸掉。
+	umount_virtual_mounts
 
 	# 先缓存挂载点：删除一结束 /usr/bin/findmnt 就没了，复查阶段再调会静默返回空，
 	# 于是 /boot/efi 这类挂载点被当成「残留旧文件」误报硬失败（真机 AWS 上踩到）。
@@ -4058,14 +4109,26 @@ EOF
 	if [ "$download_tcpx" -eq 1 ]; then
 		echo "尝试下载 tcpx.sh ..."
 		local tcpx_sh_url="https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"
+		local tcpx_tmp="/usr/local/bin/.tcpx.download"
+		local tcpx_head=""
 		[ "$region" = "cn" ] && tcpx_sh_url="https://ghproxy.net/https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"
 		echo "警告：tcpx.sh 取自可变分支且没有完整性校验，运行前请自行审阅内容"
 
-		if wget --connect-timeout=15 -T 10 -O /root/tcpx.sh "$tcpx_sh_url" && [ -s /root/tcpx.sh ]; then
-			chmod 0700 /root/tcpx.sh
-			echo "tcpx.sh 已下载到 /root/tcpx.sh（不会自动执行）"
+		mkdir -p /usr/local/bin
+		# 先下到隐藏的临时名，确认是脚本再改名：直接写 tcpx 会让 PATH 里出现
+		# 一个半截文件，用户手滑执行就是一堆语法错误。
+		if wget --connect-timeout=15 -T 10 -O "$tcpx_tmp" "$tcpx_sh_url" && [ -s "$tcpx_tmp" ]; then
+			tcpx_head="$(head -c 2 "$tcpx_tmp" 2>/dev/null)"
+			if [ "$tcpx_head" = "#!" ]; then
+				chmod 0755 "$tcpx_tmp"
+				mv -f "$tcpx_tmp" /usr/local/bin/tcpx
+				echo "tcpx 已安装到 /usr/local/bin/tcpx（不会自动执行，需要时手动运行 tcpx）"
+			else
+				rm -f "$tcpx_tmp"
+				echo "警告：下载内容不是脚本（缺少 #! 开头），已丢弃"
+			fi
 		else
-			rm -f /root/tcpx.sh
+			rm -f "$tcpx_tmp"
 			echo "警告：tcpx.sh 下载失败，跳过此步骤"
 		fi
 	fi
