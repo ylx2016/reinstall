@@ -9,6 +9,13 @@ set -o pipefail
 # GRUB/磁盘探测依赖 fdisk 的英文输出，提前固定 locale
 export LC_ALL=C
 
+# 切换 cwd 前保存调用路径；bash ./脚本 启动时 BASH_SOURCE 仍是相对路径。
+reinstall_script_source="${BASH_SOURCE[0]}"
+case "$reinstall_script_source" in
+/*) ;;
+*) reinstall_script_source="$PWD/$reinstall_script_source" ;;
+esac
+
 DEFAULT_HOSTNAME="my-os-$(date +%Y%m%d)"
 DEFAULT_TIMEZONE="Asia/Shanghai"
 DEFAULT_REGION="global"
@@ -2209,6 +2216,89 @@ module_file_name() {
 	echo "${m//-/_}"
 }
 
+# 内置驱动已经在内核里，不需要（也不会有）独立的 initramfs .ko 文件。
+# 必须查询同一个默认内核的 modules.builtin，不能用旧运行内核或其它版本代替。
+kernel_module_is_builtin() {
+	[ -n "$1" ] || return 1
+	local kver="$1" mod=""
+	mod="$(module_file_name "$2")"
+	case "$mod" in '' | *[!A-Za-z0-9_]*) return 1 ;; esac
+	[ -f "/lib/modules/$kver/modules.builtin" ] || return 1
+	awk -v m="$mod.ko" '
+		{ sub(/^.*\//, ""); sub(/\.(xz|zst|gz)$/, ""); if ($0 == m) found = 1 }
+		END { exit !found }
+	' "/lib/modules/$kver/modules.builtin"
+}
+
+# 返回缺失模块列表；读取失败单独返回非零，绝不能当成「列表为空 = 全通过」。
+# 完整收取一次 lsinitramfs 输出，避免 pipefail/SIGPIPE，也避免每个模块重复解压。
+initramfs_missing_modules() {
+	local kver="$1" initrd="$2" listing="" mod=""
+	shift 2
+	[ -n "$kver" ] && [ -s "$initrd" ] || return 1
+	listing="$(lsinitramfs "$initrd")" || {
+		echo "错误：无法读取 initramfs：$initrd" >&2
+		return 1
+	}
+	[ -n "$listing" ] || {
+		echo "错误：initramfs 成员清单为空：$initrd" >&2
+		return 1
+	}
+	for mod in "$@"; do
+		mod="$(module_file_name "$mod")"
+		case "$mod" in '' | *[!A-Za-z0-9_]*) return 1 ;; esac
+		kernel_module_is_builtin "$kver" "$mod" && continue
+		# 同名模块必须属于目标内核，不能让另一内核的目录冒充通过。
+		if ! awk -v p="/lib/modules/$kver/" -v m="$mod.ko" '
+			index("/" $0, p) {
+				sub(/^.*\//, ""); sub(/\.(xz|zst|gz)$/, ""); if ($0 == m) found = 1
+			}
+			END { exit !found }
+		' <<<"$listing"; then
+			printf '%s\n' "$mod"
+		fi
+	done
+	return 0
+}
+
+# 仅修复实际默认内核。MODULES 环境变量可能被 initramfs.conf 覆盖，
+# 因此把策略及必须提前加载的模块写进两种后端各自的持久配置。
+rebuild_storage_initramfs() {
+	local kver="$1" mod="" storage_modules="" mem_kb=0
+	local log="/var/log/reinstall-storage-initramfs.log"
+	shift
+	[ -n "$kver" ] && [ -d "/lib/modules/$kver" ] || return 1
+	cd / || return 1
+	mkdir -p /etc/initramfs-tools/conf.d /etc/dracut.conf.d /var/log || return 1
+	printf 'MODULES=most\n' >/etc/initramfs-tools/conf.d/99-reinstall-storage.conf || return 1
+	touch /etc/initramfs-tools/modules || return 1
+	for mod in "$@"; do
+		mod="$(module_file_name "$mod")"
+		case "$mod" in '' | *[!A-Za-z0-9_]*) return 1 ;; esac
+		kernel_module_is_builtin "$kver" "$mod" && continue
+		if ! grep -qxF -- "$mod" /etc/initramfs-tools/modules; then
+			printf '%s\n' "$mod" >>/etc/initramfs-tools/modules || return 1
+		fi
+		storage_modules="$storage_modules $mod"
+	done
+	printf 'force_drivers+="%s "\n' "$storage_modules" >/etc/dracut.conf.d/99-reinstall-storage.conf || return 1
+	mem_kb="$(initramfs_mem_kb)"
+	if [ "${mem_kb:-0}" -gt 0 ] && [ "$mem_kb" -lt 1572864 ]; then
+		set_initramfs_cheap_compress
+	fi
+	: >"$log" || return 1
+	if update-initramfs -u -k "$kver" >>"$log" 2>&1; then
+		return 0
+	fi
+	if initramfs_log_has_oom "$log"; then
+		set_initramfs_cheap_compress
+		update-initramfs -u -k "$kver" >>"$log" 2>&1 && return 0
+	fi
+	echo "警告：默认内核 $kver 的 initramfs 重建失败，日志：$log"
+	tail -n 15 "$log" | sed 's/^/  | /'
+	return 1
+}
+
 # 让"能用的内核"真正成为默认引导项：把缺驱动的内核包卸掉，update-grub 后
 # GRUB_DEFAULT=0 自然落到剩下的那个。比改 GRUB_DEFAULT 字符串可靠——
 # 菜单标题随发行版/语言变化，猜标题很容易猜错，卸掉坏内核没有歧义。
@@ -2403,21 +2493,20 @@ verify_root_driver_installed() {
 		elif [ -z "$initrd" ]; then
 			echo "警告：未找到默认内核 $kver 的 initramfs，跳过该检查"
 		else
-			local imissing="" rebuilt=0
-			for d in "${mods[@]}"; do
-				pipe_grep_q "/${d}\.ko" lsinitramfs "$initrd" && continue
-				if [ "$rebuilt" -eq 0 ]; then
-					echo "initramfs（$initrd）缺少 ${d}，按 MODULES=most 重建一次"
-					MODULES=most update-initramfs -u -k "$kver" >/dev/null 2>&1 ||
-						update-initramfs -u -k "$kver" >/dev/null 2>&1 || true
-					rebuilt=1
+			local imissing="" readable=1
+			imissing="$(initramfs_missing_modules "$kver" "$initrd" "${mods[@]}")" || readable=0
+			if [ "$readable" -ne 1 ] || [ -n "$imissing" ]; then
+				echo "initramfs（$initrd）缺少 ${imissing//$'\n'/ } 或读取失败，写入必要驱动配置后重建默认内核"
+				if ! rebuild_storage_initramfs "$kver" "${mods[@]}"; then
+					echo "警告：重建未成功，将独立复查已有 initramfs，不以命令退出码代替驱动验证"
 				fi
-				pipe_grep_q "/${d}\.ko" lsinitramfs "$initrd" || imissing="$imissing $d"
-			done
-			if [ -n "$imissing" ]; then
-				err "自检失败：initramfs（$initrd）不含驱动模块${imissing}，重启后内核枚举不到磁盘。请在重启前手工执行 MODULES=most update-initramfs -u -k all"
+				imissing="$(initramfs_missing_modules "$kver" "$initrd" "${mods[@]}")" ||
+					err "自检失败：无法验证 $initrd，请勿重启。先 cd /，检查 /var/log/reinstall-storage-initramfs.log，再执行 update-initramfs -u -k $kver"
 			fi
-			echo "initramfs 自检通过：$initrd 内已包含 ${mods[*]}"
+			if [ -n "$imissing" ]; then
+				err "自检失败：默认内核未内置、initramfs（$initrd）也未包含驱动模块 ${imissing//$'\n'/ }。请勿重启；先 cd /，检查 /etc/initramfs-tools/modules 与 /var/log/reinstall-storage-initramfs.log，再执行 update-initramfs -u -k $kver"
+			fi
+			echo "initramfs 自检通过：默认内核 $kver 已内置或 $initrd 已包含 ${mods[*]}"
 		fi
 	fi
 	return 0
@@ -2526,7 +2615,7 @@ backup_authorized_keys() {
 # 的提示在机器上都无法执行 —— 这类提示本身就是缺陷。备好工具后，至少还能手工
 # 解压已下载的镜像、或继续排查。
 stage_recovery_kit() {
-	local dir="${root_dir}/recovery" src="${BASH_SOURCE[0]}" bb="${busybox_path:-}" a=""
+	local dir="${root_dir}/recovery" src="${reinstall_script_source:-${BASH_SOURCE[0]}}" bb="${busybox_path:-}" a=""
 	mkdir -p "$dir/bin" 2>/dev/null || {
 		echo "警告：无法创建 $dir，抹盘后将没有可用的就地自救工具"
 		return 0
@@ -2566,8 +2655,10 @@ stage_recovery_kit() {
 
 	# 与 $root_dir 其余内容一起被排除在删除之外；这里显式确认一次，避免排除
 	# 表达式将来改坏之后工具集被自己删掉。
-	if [ -f "$dir/README.txt" ]; then
+	if [ -s "$dir/reinstall.sh" ] && [ -x "$dir/busybox" ] && [ -f "$dir/README.txt" ]; then
 		echo "自救工具集已就位：${dir}（脚本副本 + busybox + README）"
+	else
+		echo "警告：自救工具集不完整：${dir}，不要假设脚本副本或 BusyBox 已保存"
 	fi
 	return 0
 }
@@ -2680,6 +2771,8 @@ umount_virtual_mounts() {
 }
 
 delete_old_system() {
+	# 当前目录可能也是待删除的旧 inode，先离开它，避免后续子进程 getcwd() 失败。
+	cd / || err "无法进入根目录，拒绝删除"
 	[ -f "$busybox_path" ] || err "BusyBox 文件缺失：$busybox_path"
 	"$busybox_path" --help >/dev/null 2>&1 || err "BusyBox 不可执行：$busybox_path"
 
@@ -2894,7 +2987,8 @@ extract_image() {
 	fi
 
 	echo "开始解压系统镜像..."
-	cd "$root_dir" || err "无法进入 $root_dir"
+	# 所有镜像路径都为绝对路径，不进入稍后会 rm -rf 的 /os。
+	cd / || err "无法进入根目录"
 	# 已开启 pipefail：xz 截断或 tar 失败都会反映到整条管道的退出码
 	"$busybox_path" xzcat "$root_dir/os.tar.xz" | "$busybox_path" tar -x -C / || err "解压系统镜像失败，当前系统已不可引导，请从救援系统重试"
 
@@ -4282,6 +4376,7 @@ ensure_emergency_swap() {
 }
 
 rebuild_initramfs() {
+	cd / || return 1
 	# $1 = 触发原因（写进日志/提示）
 	# 目的：把"看起来失败"变成"看得见原因"，并尽量降级到能开机。
 	#   - initramfs-tools 的 hooks 缺失时，-u 只会生成空壳 → 先补装
@@ -5770,6 +5865,7 @@ verify_boot_menu() {
 }
 
 finalize_install() {
+	cd / || err "无法进入根目录，拒绝清理安装目录"
 	if command -v apt >/dev/null 2>&1; then
 		echo "检测到 apt，系统安装成功"
 	else
